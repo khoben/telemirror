@@ -22,10 +22,10 @@ async def handler_edit_message(event):
         print('LOG. EDIT MESSAGE')
         print(event.message)
         id_message_to_edit = event.message.id + OFFSET
-        result = await client(functions.channels.GetMessagesRequest(
+        result = client(functions.channels.GetMessagesRequest(
             channel='@ggg111222333',
             id=[id_message_to_edit]
-        )).messages
+        ))
         print(result)
         message_to_edit = result.messages
         await client.edit_message(message_to_edit, event.message)
