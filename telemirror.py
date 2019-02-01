@@ -1,5 +1,5 @@
 from telethon import TelegramClient, events, utils, functions
-from settings import API_HASH, API_ID, TARGET_CHAT, CHATS, SESSION_STRING
+from settings import API_HASH, API_ID, TARGET_CHAT, CHATS, SESSION_STRING, OFFSET
 from telethon.sessions import StringSession
 
 client = TelegramClient(StringSession(SESSION_STRING), API_ID, API_HASH)
@@ -11,6 +11,22 @@ async def handler_new_message(event):
         print('LOG: NEW MESSAGE.')
         print(event.message)
         await client.send_message(TARGET_CHAT, event.message)
+    except Exception as e:
+        print(e)
+
+
+@client.on(events.MessageEdited(chats=()))
+async def handler_edit_message(event):
+    try:
+        print('LOG. EDIT MESSAGE')
+        print(event.message)
+        id_message_to_edit = event.message.id - OFFSET
+        result = client(functions.channels.GetMessagesRequest(
+            channel='@fromzero2hero',
+            id=[id_message_to_edit]
+        ))
+        message_to_edit = result.messages[0]
+        await client.edit_message(message_to_edit, event.message)
     except Exception as e:
         print(e)
 
