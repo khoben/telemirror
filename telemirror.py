@@ -1,5 +1,5 @@
 from telethon import events, utils, functions
-from telethon import TelegramClient
+from telethon.sync import TelegramClient
 from settings import API_HASH, API_ID, TARGET_CHAT, CHATS, SESSION_STRING, OFFSET
 from telethon.sessions import StringSession
 
