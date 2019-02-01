@@ -27,6 +27,7 @@ async def handler_edit_message(event):
             id=[id_message_to_edit]
         ))
         print(result)
+        print(result.messages)
         message_to_edit = result.messages
         await client.edit_message(message_to_edit, event.message)
     except Exception as e:
