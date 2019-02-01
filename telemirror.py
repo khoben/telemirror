@@ -25,8 +25,9 @@ async def handler_edit_message(event):
         result = await client(functions.channels.GetMessagesRequest(
             channel='@fromzero2hero',
             id=[id_message_to_edit]
-        ))
-        message_to_edit = result.messages[0]
+        )).messages
+        print(result)
+        message_to_edit = result.messages
         await client.edit_message(message_to_edit, event.message)
     except Exception as e:
         print(e)
