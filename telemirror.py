@@ -15,7 +15,7 @@ async def handler_new_message(event):
         print(e)
 
 
-@client.on(events.MessageEdited(chats=()))
+@client.on(events.MessageEdited(chats=CHATS))
 async def handler_edit_message(event):
     try:
         print('LOG. EDIT MESSAGE')
