@@ -2,6 +2,7 @@ from telethon import events, utils, functions
 from telethon.sync import TelegramClient
 from settings import API_HASH, API_ID, TARGET_CHAT, CHATS, SESSION_STRING, OFFSET
 from telethon.sessions import StringSession
+import socks
 
 client = TelegramClient(StringSession(SESSION_STRING), API_ID, API_HASH)
 
@@ -29,7 +30,7 @@ async def handler_edit_message(event):
         print(result)
         print(result.messages[0])
         message_to_edit = result.messages[0]
-        await client.edit_message(message_to_edit, event.message)
+        await client.edit_message(message_to_edit, event.message.message)
     except Exception as e:
         print(e)
 
