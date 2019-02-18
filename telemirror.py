@@ -1,9 +1,14 @@
-from telethon import events, utils, functions
-from telethon.sync import TelegramClient
-from settings import API_HASH, API_ID, TARGET_CHAT, CHATS, SESSION_STRING, OFFSET
-from telethon.sessions import StringSession
+import re
+
 import socks
+from telethon import events, functions, utils
+from telethon.sessions import StringSession
+from telethon.sync import TelegramClient
 from urlextract import URLExtract
+
+from settings import (API_HASH, API_ID, CHATS, OFFSET, SESSION_STRING,
+                      TARGET_CHAT)
+
 extractor = URLExtract()
 
 client = TelegramClient(StringSession(SESSION_STRING), API_ID, API_HASH)
@@ -20,6 +25,9 @@ def remove_urls(text):
                 break
         if allowed is False:
             text = text.replace(url, "<ссылка>")
+
+    text = re.sub(r'(@)([\d\w]*)', r'\1 \2', text)
+
     return text
 
 
