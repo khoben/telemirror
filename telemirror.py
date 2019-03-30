@@ -5,6 +5,7 @@ from telethon import events, functions, utils
 from telethon.sessions import StringSession
 from telethon.sync import TelegramClient
 from urlextract import URLExtract
+import math
 
 from settings import (API_HASH, API_ID, CHATS, OFFSET, SESSION_STRING,
                       TARGET_CHAT)
@@ -47,7 +48,7 @@ async def handler_edit_message(event):
     try:
         print('LOG. EDIT MESSAGE')
         print(event.message)
-        id_message_to_edit = event.message.id - OFFSET
+        id_message_to_edit = math.fabs(event.message.id - OFFSET)
         result = await client(functions.channels.GetMessagesRequest(
             channel='@plus400k',
             id=[id_message_to_edit]
