@@ -4,7 +4,7 @@ API_ID = environ['API_ID']
 API_HASH = environ['API_HASH']
 
 CHATS = (
-    '@vplusingbet',
+    '@fromzero_to_hero',
     '@ggg111222333'
 )
 
