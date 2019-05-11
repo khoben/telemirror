@@ -13,4 +13,4 @@ SESSION_STRING = environ['SESSION_STRING']
 TARGET_CHAT = '@plus400k'
 
 # difference between ids in original channel and mirror
-OFFSET = environ['OFFSET_MESSAGE']
+OFFSET = int(environ['OFFSET_MESSAGE'])
