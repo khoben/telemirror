@@ -48,7 +48,7 @@ async def handler_edit_message(event):
     try:
         print('LOG. EDIT MESSAGE')
         print(event.message)
-        id_message_to_edit = math.fabs(event.message.id - OFFSET)
+        id_message_to_edit = int(event.message.id) + OFFSET
         result = await client(functions.channels.GetMessagesRequest(
             channel='@plus400k',
             id=[id_message_to_edit]
