@@ -1,3 +1,4 @@
 pysocks
 telethon
 urlextract
+python-dotenv
