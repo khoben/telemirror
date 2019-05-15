@@ -1,4 +1,7 @@
 from os import environ
+from dotenv import load_dotenv
+
+load_dotenv()
 
 API_ID = environ['API_ID']
 API_HASH = environ['API_HASH']
@@ -10,7 +13,7 @@ CHATS = (
 
 SESSION_STRING = environ['SESSION_STRING']
 
-TARGET_CHAT = '@plus400k'
+TARGET_CHAT = environ['TARGET_CHAT']
 
 # difference between ids in original channel and mirror
 OFFSET = int(environ['OFFSET_MESSAGE'])
