@@ -6,8 +6,9 @@ from telethon.sessions import StringSession
 from telethon.sync import TelegramClient
 from urlextract import URLExtract
 import math
+import database
 
-from settings import (API_HASH, API_ID, CHATS, OFFSET, SESSION_STRING,
+from settings import (API_HASH, API_ID, CHATS, SESSION_STRING,
                       TARGET_CHAT)
 
 extractor = URLExtract()
@@ -38,7 +39,11 @@ async def handler_new_message(event):
         print('LOG: NEW MESSAGE.')
         print(event.message)
         event.message.message = remove_urls(event.message.message)
-        await client.send_message(TARGET_CHAT, event.message)
+        mirror_id = await client.send_message(TARGET_CHAT, event.message)
+        database.insert({
+            'original_id': event.message.id,
+            'mirror_id': int(mirror_id.id)
+        })
     except Exception as e:
         print(e)
 
@@ -48,7 +53,8 @@ async def handler_edit_message(event):
     try:
         print('LOG. EDIT MESSAGE')
         print(event.message)
-        id_message_to_edit = int(event.message.id) + OFFSET
+        id_message_to_edit = int(database.find_by_id(
+            int(event.message.id))['mirror_id'])
         result = await client(functions.channels.GetMessagesRequest(
             channel='@plus400k',
             id=[id_message_to_edit]

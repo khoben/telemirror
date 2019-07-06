@@ -16,4 +16,9 @@ SESSION_STRING = environ['SESSION_STRING']
 TARGET_CHAT = environ['TARGET_CHAT']
 
 # difference between ids in original channel and mirror
-OFFSET = int(environ['OFFSET_MESSAGE'])
+# OFFSET = int(environ['OFFSET_MESSAGE'])
+
+DB_NAME = environ["DB_NAME"]
+DB_USER = environ["DB_USER"]
+DB_PASS = environ["DB_PASS"]
+DB_HOST = environ["DB_HOST"]

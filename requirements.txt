@@ -2,3 +2,4 @@ pysocks
 telethon
 urlextract
 python-dotenv
+psycopg2
