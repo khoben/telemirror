@@ -8,6 +8,7 @@ API_HASH = environ['API_HASH']
 
 CHATS = (
     '@fromzero_to_hero',
+    '@bestovduringreklama'
     '@ggg111222333'
 )
 
