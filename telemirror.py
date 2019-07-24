@@ -52,14 +52,11 @@ async def handler_new_message(event):
 async def handler_edit_message(event):
     try:
         print('LOG. EDIT MESSAGE')
-        print(event.message.to_id)
-        print(event.message)
         id_message_to_edit = int(database.find_by_id(
             int(event.message.id))['mirror_id'])
-        channel = event.chat_id
-        print(channel)
+
         result = await client(functions.channels.GetMessagesRequest(
-            channel=channel,
+            channel='@plus400k',
             id=[id_message_to_edit]
         ))
         message_to_edit = result.messages[0]
