@@ -59,6 +59,7 @@ async def handler_edit_message(event):
             channel=event.chat,
             id=[id_message_to_edit]
         ))
+        print(event)
         message_to_edit = result.messages[0]
         event.message.message = remove_urls(event.message.message)
         await client.edit_message(message_to_edit, event.message.message)
