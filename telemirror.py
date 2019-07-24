@@ -57,6 +57,7 @@ async def handler_edit_message(event):
         id_message_to_edit = int(database.find_by_id(
             int(event.message.id))['mirror_id'])
         channel = event.chat_id
+        print(channel)
         result = await client(functions.channels.GetMessagesRequest(
             channel=channel,
             id=[id_message_to_edit]
