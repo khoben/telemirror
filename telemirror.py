@@ -52,6 +52,7 @@ async def handler_new_message(event):
 async def handler_edit_message(event):
     try:
         print('LOG. EDIT MESSAGE')
+        print(event)
         print(event.message)
         id_message_to_edit = int(database.find_by_id(
             int(event.message.id))['mirror_id'])
@@ -59,7 +60,6 @@ async def handler_edit_message(event):
             channel=event.chat,
             id=[id_message_to_edit]
         ))
-        print(event)
         message_to_edit = result.messages[0]
         event.message.message = remove_urls(event.message.message)
         await client.edit_message(message_to_edit, event.message.message)
