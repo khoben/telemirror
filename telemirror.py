@@ -26,11 +26,11 @@ def remove_urls(text):
                 allowed = True
                 break
         if allowed is False:
-            # text = text.replace(url, "<ссылка>")
-            text = text.replace(url, "@fakesumbetbot")
+            text = text.replace(url, "<ссылка>")
+            # text = text.replace(url, "@fakesumbetbot")
 
-    # text = re.sub(r'(@)([\d\w]*)', r'\1 \2', text)
-    text = re.sub(r'(@)([\d\w]*)', r'@fakesumbetbot', text)
+    text = re.sub(r'(@)([\d\w]*)', r'\1 \2', text)
+    # text = re.sub(r'(@)([\d\w]*)', r'@fakesumbetbot', text)
 
     return text
 
