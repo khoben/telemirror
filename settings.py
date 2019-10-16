@@ -7,9 +7,10 @@ API_ID = environ['API_ID']
 API_HASH = environ['API_HASH']
 
 CHATS = (
-    '@fromzero_to_hero',
-    '@bestovduringreklama',
-    '@ggg111222333'
+    -1001104714255, # @bestovduringreklama
+    -1001458049012, # @ggg111222333
+    -1001253406503, # @realbestov
+
 )
 
 SESSION_STRING = environ['SESSION_STRING']
