@@ -1,6 +1,5 @@
-from telethon import events, functions, utils
-from telethon.sessions import StringSession
 from telethon.sync import TelegramClient
+from telethon.sessions import StringSession
 
 from settings import (API_HASH, API_ID)
 

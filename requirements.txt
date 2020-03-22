@@ -1,5 +1,5 @@
-pysocks
-telethon
-urlextract
-python-dotenv
-psycopg2
+pysocks==1.68
+telethon==1.11.3
+urlextract==0.9
+python-dotenv==0.10.1
+psycopg2==2.8.3
