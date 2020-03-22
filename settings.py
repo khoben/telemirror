@@ -14,7 +14,6 @@ CHATS = (
     -1001104714255,  # @bestovduringreklama
     -1001458049012,  # @ggg111222333
     -1001253406503,  # @realbestov
-
 )
 
 # auth session string: can be obtain by run login.py
