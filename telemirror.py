@@ -28,10 +28,8 @@ def remove_urls(text):
                 break
         if allowed is False:
             text = text.replace(url, "<ссылка>")
-            # text = text.replace(url, "@tiktokvideva - ахуевший TikTok")
 
     text = re.sub(r'(@)([\d\w]*)', r'\1 \2', text)
-    # text = re.sub(r'(@)([\d\w]*)', r'@tiktokvideva - ахуевший TikTok', text)
 
     return text
 
@@ -59,7 +57,7 @@ async def handler_edit_message(event):
             int(event.message.id))['mirror_id'])
 
         result = await client(functions.channels.GetMessagesRequest(
-            channel='@plus400k',
+            channel=TARGET_CHAT,
             id=[id_message_to_edit]
         ))
         message_to_edit = result.messages[0]
