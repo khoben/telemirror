@@ -19,6 +19,9 @@ client = TelegramClient(StringSession(SESSION_STRING), API_ID, API_HASH)
 def remove_urls(text):
     WHITELIST = ['youtube.com', 'youtu.be',
                  'vk.com', 'twitch.tv', 'instagram.com']
+
+    if len(text) < 140:
+        return text
     urls = extractor.find_urls(text)
     for url in urls:
         allowed = False
