@@ -10,9 +10,12 @@ API_HASH = environ['API_HASH']
 
 # better to use channels id
 # but names also works too
-CHATS = environ.get('CHATS')
-if CHATS is not None:
-    CHATS = CHATS.split(',')
+CHATS = []
+CHATS_DATA = environ.get('CHATS')
+if CHATS_DATA is not None:
+    CHATS.extend([i for i in CHATS_DATA.split(',') if i[0] == '@'])
+    CHATS.extend([int(i) for i in CHATS_DATA.split(',') if i[0] == '-'])
+
 
 # auth session string: can be obtain by run login.py
 SESSION_STRING = environ['SESSION_STRING']
