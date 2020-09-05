@@ -20,7 +20,7 @@ SESSION_STRING = environ['SESSION_STRING']
 # target channel for posting
 TARGET_CHAT = environ['TARGET_CHAT']
 
-DB_URL = os.environ['DATABASE_URL']
+DB_URL = environ['DATABASE_URL']
 
 # postgres credentials
 DB_NAME = environ["DB_NAME"]
