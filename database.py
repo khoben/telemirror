@@ -1,7 +1,7 @@
 import psycopg2
 from psycopg2 import extras
 from psycopg2.extensions import AsIs
-from settings import DB_HOST, DB_NAME, DB_PASS, DB_USER
+from settings import DB_URL
 
 
 def sql_insert_dict(data):
@@ -23,8 +23,7 @@ def sql_update_dict(data, id):
 
 
 def create_table():
-    connection = psycopg2.connect(dbname=DB_NAME, user=DB_USER,
-                                  password=DB_PASS, host=DB_HOST)
+    connection = psycopg2.connect(DB_URL)
     cursor = connection.cursor()
 
     try:
@@ -46,8 +45,7 @@ def create_table():
 
 
 def insert(entity):
-    connection = psycopg2.connect(dbname=DB_NAME, user=DB_USER,
-                                  password=DB_PASS, host=DB_HOST)
+    connection = psycopg2.connect(DB_URL)
     cursor = connection.cursor()
     try:
         columns = entity.keys()
@@ -64,8 +62,7 @@ def insert(entity):
 
 
 def read():
-    connection = psycopg2.connect(dbname=DB_NAME, user=DB_USER,
-                                  password=DB_PASS, host=DB_HOST)
+    connection = psycopg2.connect(DB_URL)
     cursor = connection.cursor()
     cursor.execute("""
                     SELECT * FROM binding_id
@@ -77,8 +74,7 @@ def read():
 
 def read_by_id(id_entity):
     try:
-        connection = psycopg2.connect(dbname=DB_NAME, user=DB_USER,
-                                      password=DB_PASS, host=DB_HOST)
+        connection = psycopg2.connect(DB_URL)
         cursor = connection.cursor(
             cursor_factory=psycopg2.extras.RealDictCursor)
         cursor.execute("""
@@ -94,8 +90,7 @@ def read_by_id(id_entity):
 
 def find_by_id(id_entity):
     try:
-        connection = psycopg2.connect(dbname=DB_NAME, user=DB_USER,
-                                      password=DB_PASS, host=DB_HOST)
+        connection = psycopg2.connect(DB_URL)
         cursor = connection.cursor(
             cursor_factory=psycopg2.extras.RealDictCursor)
         cursor.execute("""

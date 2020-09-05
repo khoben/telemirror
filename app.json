@@ -1,0 +1,30 @@
+{
+    "name": "TeleMirror",
+    "description": "App helps mirroring newly created post from Telegram channels.",
+    "image": "heroku/python",
+    "repository": "https://github.com/khoben/telemirror",
+    "keywords": [
+        "python",
+        "telegram"
+    ],
+    "addons": [
+        "heroku-postgresql"
+    ],
+    "env": {
+        "API_ID": {
+            "description": "Telegram APP ID"
+        },
+        "API_HASH": {
+            "description": "Telegram APP hash"
+        },
+        "SESSION_STRING": {
+            "description": "Telegram session string value"
+        },
+        "CHATS":{
+            "description": "Source channels id or name"
+        },
+        "TARGET_CHAT": {
+            "description": "Mirror channel name (@...)"
+        }
+    }
+}

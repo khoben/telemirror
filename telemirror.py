@@ -64,6 +64,7 @@ async def handler_edit_message(event):
             id=[id_message_to_edit]
         ))
         message_to_edit = result.messages[0]
+        # removing urls from message
         event.message.message = remove_urls(event.message.message)
         await client.edit_message(message_to_edit, event.message.message)
     except Exception as e:
