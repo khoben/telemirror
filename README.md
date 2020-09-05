@@ -57,7 +57,7 @@ or
 
 1. Clone project
 ```
-    git clone git@github.com:khoben/telemirror.git
+    git clone https://github.com/khoben/telemirror.git
 ```
 2. Create new heroku app within Heroku CLI
 ```
