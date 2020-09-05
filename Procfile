@@ -1,1 +1,1 @@
-run: python telemirror.py
+web: python telemirror.py

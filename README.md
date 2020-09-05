@@ -76,7 +76,3 @@ or
 ```
     git push heroku master
 ```
-6. Run heroku app
-```
-    heroku ps:scale run=1
-```
