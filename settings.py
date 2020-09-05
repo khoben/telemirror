@@ -4,9 +4,9 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # telegram app id
-API_ID = environ['API_ID']
+API_ID = environ.get('API_ID')
 # telegram app hash
-API_HASH = environ['API_HASH']
+API_HASH = environ.get('API_HASH')
 
 # better to use channels id
 # but names also works too
@@ -18,19 +18,19 @@ if CHATS_DATA is not None:
 
 
 # auth session string: can be obtain by run login.py
-SESSION_STRING = environ['SESSION_STRING']
+SESSION_STRING = environ.get('SESSION_STRING')
 
 # target channel for posting
-TARGET_CHAT = environ['TARGET_CHAT']
+TARGET_CHAT = environ.get('TARGET_CHAT')
 
 
-DB_URL = environ.get('DATABASE_URL', None)
+DB_URL = environ.get('DATABASE_URL')
 
 # postgres credentials
-DB_NAME = environ["DB_NAME"]
-DB_USER = environ["DB_USER"]
-DB_PASS = environ["DB_PASS"]
-DB_HOST = environ["DB_HOST"]
+DB_NAME = environ.get("DB_NAME")
+DB_USER = environ.get("DB_USER")
+DB_PASS = environ.get("DB_PASS")
+DB_HOST = environ.get("DB_HOST")
 
 # if already not setted
 if DB_URL is None:
