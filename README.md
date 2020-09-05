@@ -5,7 +5,7 @@ App helps mirroring newly created post from Telegram channels. We will use Teleg
 ## Prepare
 1. [Create Telegram App](https://my.telegram.org/apps)
 2. Obtain API App ID and hash
-![GitHub Logo](/images/telegramapp.png)
+![Telegram API Credentials](/images/telegramapp.png)
 3. Setup Postgres database
 4. Fill [.env-example](.env-example) with your data and rename it to .env 
     1. SESSION_STRING can be obtained by running [login.py](login.py) with putted API_ID and API_HASH before.
@@ -51,7 +51,13 @@ python telemirror.py
 ```
 
 ## Heroku
+1. Hit the button
+
 [![Deploy](https://www.herokucdn.com/deploy/button.svg)](https://heroku.com/deploy?template=https://github.com/khoben/telemirror)
+
+2. Start **run** dyno
+
+![Start heroku dyno](/images/startdyno.png)
 
 or
 
@@ -75,4 +81,9 @@ or
 5. Upload on heroku host
 ```
     git push heroku master
+```
+
+6. Start heroku app
+```
+    heroku ps:scale run=1
 ```
