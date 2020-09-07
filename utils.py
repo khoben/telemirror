@@ -1,3 +1,4 @@
+import re
 from urlextract import URLExtract
 from settings import REMOVE_URLS_WL_DATA as WHITELIST
 extractor = URLExtract()
