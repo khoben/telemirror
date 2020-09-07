@@ -25,6 +25,9 @@ SESSION_STRING = environ.get('SESSION_STRING')
 
 # target channel for posting
 TARGET_CHAT = environ.get('TARGET_CHAT')
+if TARGET_CHAT is not None and TARGET_CHAT[0] == '-':
+    TARGET_CHAT = int(TARGET_CHAT)
+
 
 REMOVE_URLS = str2bool(environ.get('REMOVE_URLS', 'False'))
 REMOVE_URLS_WL = environ.get('REMOVE_URLS_WL')

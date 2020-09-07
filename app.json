@@ -24,7 +24,7 @@
             "description": "Source channels id or name"
         },
         "TARGET_CHAT": {
-            "description": "Mirror channel name (@...)"
+            "description": "Mirror channel name (@...) or id (-100...)"
         },
         "REMOVE_URLS": {
             "description": "Removing urls from incoming messages (true or false)",
