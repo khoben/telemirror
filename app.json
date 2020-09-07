@@ -25,6 +25,14 @@
         },
         "TARGET_CHAT": {
             "description": "Mirror channel name (@...)"
+        },
+        "REMOVE_URLS": {
+            "description": "Removing urls from incoming messages (true or false)",
+            "required": false
+        },
+        "REMOVE_URLS_WL": {
+            "description": "White list for removing URLs",
+            "required": false
         }
     }
 }

@@ -1,108 +1,127 @@
+import logging
+
 import psycopg2
 from psycopg2 import extras
 from psycopg2.extensions import AsIs
-from settings import DB_URL
 
+from settings import (DB_URL)
 
-def sql_insert_dict(data):
-    columns = ', '.join(data.keys())
-    placeholders = ',? '.join("%s" * len(data))
-    sql = 'INSERT INTO binding_id ({}) VALUES ({})'.format(
-        columns, placeholders)
-    # print(sql)
-    return sql
+logger = logging.getLogger(__name__)
 
-
-def sql_update_dict(data, id):
-    columns = 'SET '
-    columns += ', '.join([k+'='+v for k, v in data.items()])
-    where = 'id={}'.format(id_match)
-    sql = 'UPDATE binding_id SET {} WHERE {}'.format(columns, where)
-    # print(sql)
-    return sql
-
+"""
+# Table 'binding_id'
+# id                primary key
+# original_id       original message id
+# mirror_id         mirror message id
+# original_channel  original channel id
+"""
 
 def create_table():
-    connection = psycopg2.connect(DB_URL)
-    cursor = connection.cursor()
-
     try:
-
-        cursor.execute(
-            """
-            CREATE TABLE IF NOT EXISTS binding_id
-            (   id serial primary key not null,
-                original_id bigint not null,
-                mirror_id bigint not null
-            )
-            """
-        )
-        connection.commit()
-
+        connection = psycopg2.connect(DB_URL)
     except Exception as e:
-        print(e)
-    connection.close()
+        logger.error(e)
+        connection = None
+    if connection:
+        cursor = connection.cursor()
+        try:
+            cursor.execute(
+                """
+                CREATE TABLE IF NOT EXISTS binding_id
+                (   id serial primary key not null,
+                    original_id bigint not null,
+                    mirror_id bigint not null,
+                    original_channel text not null,
+                )
+                """
+            )
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            connection.rollback()
+        else:
+            connection.commit()
+        cursor.close()
+        connection.close()
 
 
 def insert(entity):
-    connection = psycopg2.connect(DB_URL)
-    cursor = connection.cursor()
     try:
-        columns = entity.keys()
-        values = entity.values()
-
-        sql_insert = 'insert into binding_id (%s) values %s'
-
-        cursor.execute(sql_insert, (AsIs(','.join(columns)), tuple(values)))
-        # cursor.execute(sql_insert_dict(match), tuple(match.values()))
-        connection.commit()
+        connection = psycopg2.connect(DB_URL)
     except Exception as e:
-        print(e)
-    connection.close()
+        logger.error(e, exc_info=True)
+        connection = None
+    if connection:
+        cursor = connection.cursor()
+        try:
+            columns = entity.keys()
+            values = entity.values()
+
+            sql_insert = 'INSERT INTO binding_id (%s) values %s'
+
+            try:
+                cursor.execute(sql_insert, (AsIs(','.join(columns)), tuple(values)))
+            except Exception as e:
+                logger.error(e, exc_info=True)
+                connection.rollback()
+            else:
+                connection.commit()
+
+        except Exception as e:
+            logger.error(e, exc_info=True)
+
+        cursor.close()
+        connection.close()
 
 
 def read():
-    connection = psycopg2.connect(DB_URL)
-    cursor = connection.cursor()
-    cursor.execute("""
-                    SELECT * FROM binding_id
-                    """)
-    rows = cursor.fetchall()
-    connection.close()
+    rows = None
+    try:
+        connection = psycopg2.connect(DB_URL)
+    except Exception as e:
+        logger.error(e, exc_info=True)
+        connection = None
+    if connection:
+        cursor = connection.cursor()
+        try:
+            cursor.execute("""
+                            SELECT original_id, mirror_id, original_channel
+                            FROM binding_id
+                            """)
+        except Exception as e:
+            logger.error(e, exc_info=True)
+        else:
+            rows = cursor.fetchall()
+        cursor.close()
+        connection.close()
     return rows
 
-
-def read_by_id(id_entity):
+def find_by_original_id(original_id, original_channel):
+    row = None
     try:
         connection = psycopg2.connect(DB_URL)
+    except Exception as e:
+        logger.error(e, exc_info=True)
+        connection = None
+
+    if connection:
         cursor = connection.cursor(
             cursor_factory=psycopg2.extras.RealDictCursor)
-        cursor.execute("""
-                        SELECT * FROM binding_id
-                        WHERE id = %s
-                        """, (id_entity, ))
-        rows = cursor.fetchone()
+        try:
+            cursor.execute("""
+                            SELECT original_id, mirror_id, original_channel
+                            FROM binding_id
+                            WHERE original_id = %s
+                            AND original_channel = %s
+                            """, (original_id, original_channel,))
+        except Exception as e:
+            logger.error(e, exc_info=True)
+        else:
+            row = cursor.fetchone()
+        cursor.close()
         connection.close()
-        return rows
-    except Exception as e:
-        print(e)
+    return row
 
-
-def find_by_id(id_entity):
-    try:
-        connection = psycopg2.connect(DB_URL)
-        cursor = connection.cursor(
-            cursor_factory=psycopg2.extras.RealDictCursor)
-        cursor.execute("""
-                        SELECT * FROM binding_id
-                        WHERE original_id = %s
-                        """, (id_entity, ))
-        rows = cursor.fetchone()
-        connection.close()
-        return rows
-    except Exception as e:
-        print(e)
-
+create_table()
 
 if __name__ == "__main__":
     print(read())
