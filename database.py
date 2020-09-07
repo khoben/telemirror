@@ -31,7 +31,7 @@ def create_table():
                 (   id serial primary key not null,
                     original_id bigint not null,
                     mirror_id bigint not null,
-                    original_channel text not null,
+                    original_channel bigint not null
                 )
                 """
             )

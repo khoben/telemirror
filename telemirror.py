@@ -23,7 +23,7 @@ async def handler_new_message(event):
         mirror_id = await client.send_message(TARGET_CHAT, event.message)
         database.insert({
             'original_id': event.message.id,
-            'mirror_id': int(mirror_id.id),
+            'mirror_id': mirror_id.id,
             'original_channel': event.chat_id
         })
     except Exception as e:
@@ -34,10 +34,10 @@ async def handler_new_message(event):
 async def handler_edit_message(event):
     try:
         logger.debug('Edit message')
-        mirror_message = database.find_by_original_id(int(event.message.id), event.chat_id)
+        mirror_message = database.find_by_original_id(event.message.id, event.chat_id)
         if mirror_message is None:
             return
-        id_message_to_edit = int(mirror_message['mirror_id'])
+        id_message_to_edit = mirror_message['mirror_id']
         result = await client(functions.channels.GetMessagesRequest(
             channel=TARGET_CHAT,
             id=[id_message_to_edit]
