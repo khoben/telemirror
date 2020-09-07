@@ -3,6 +3,7 @@ import logging
 from telethon import events, functions, utils
 from telethon.sessions import StringSession
 from telethon.sync import TelegramClient
+from telethon.tl.types import MessageMediaPoll, InputMediaPoll
 
 import database
 from settings import (API_HASH, API_ID, CHATS, REMOVE_URLS, SESSION_STRING,
@@ -20,7 +21,11 @@ async def handler_new_message(event):
         logger.debug(f'New message:\n{event.message}')
         if REMOVE_URLS:
             event.message.message = remove_urls(event.message.message)
-        mirror_id = await client.send_message(TARGET_CHAT, event.message)
+        mirror_id = None
+        if (isinstance(event.message.media, MessageMediaPoll)):
+            mirror_id = await client.send_message(TARGET_CHAT, file=InputMediaPoll(poll=event.message.media.poll))
+        else:
+            mirror_id = await client.send_message(TARGET_CHAT, event.message)
         database.insert({
             'original_id': event.message.id,
             'mirror_id': mirror_id.id,
