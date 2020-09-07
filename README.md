@@ -1,6 +1,6 @@
 # Telegram channel mirroring app 
 
-App helps mirroring newly created post from Telegram channels. We will use Telegram client API because Bot API have limited functionality. 
+App helps make telegram channel mirror (one to one or many to one). We will use Telegram client API because Bot API have limited functionality. 
 
 ## Prepare
 1. [Create Telegram App](https://my.telegram.org/apps)
@@ -14,7 +14,10 @@ App helps mirroring newly created post from Telegram channels. We will use Teleg
 API_ID=test # Telegram app ID
 API_HASH=test # Telegram app hash
 SESSION_STRING=test # Telegram session string
-TARGET_CHAT=test    # Target chat to post 
+TARGET_CHAT=test    # Target channel to post
+REMOVE_URLS=false   # Apply removing URLs on messages
+# Remove URLs whitelist
+REMOVE_URLS_WL=youtube.com,youtu.be,vk.com,twitch.tv,instagram.com
 # Postgres credentials
 DATABASE_URL=postgres://user:pass@host/dbname
 # or
