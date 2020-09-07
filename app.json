@@ -21,17 +21,17 @@
             "description": "Telegram session string value"
         },
         "CHATS":{
-            "description": "Source channels id or name"
+            "description": "Source channels name (@...) or id (-100...) separated by commas"
         },
         "TARGET_CHAT": {
-            "description": "Mirror channel name (@...) or id (-100...)"
+            "description": "Mirror/target channel name (@...) or id (-100...)"
         },
         "REMOVE_URLS": {
             "description": "Removing urls from incoming messages (true or false)",
             "required": false
         },
         "REMOVE_URLS_WL": {
-            "description": "White list for removing URLs",
+            "description": "White list for removing URLs separated by commas",
             "required": false
         }
     }
