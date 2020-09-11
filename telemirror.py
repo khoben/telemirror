@@ -43,14 +43,9 @@ async def handler_edit_message(event):
         if mirror_message is None:
             return
         id_message_to_edit = mirror_message['mirror_id']
-        result = await client(functions.channels.GetMessagesRequest(
-            channel=TARGET_CHAT,
-            id=[id_message_to_edit]
-        ))
-        message_to_edit = result.messages[0]
         if REMOVE_URLS:
             event.message.message = remove_urls(event.message.message)
-        await client.edit_message(message_to_edit, event.message.message)
+        await client.edit_message(TARGET_CHAT, id_message_to_edit, event.message.message)
     except Exception as e:
         logger.error(e, exc_info=True)
 
