@@ -1,13 +1,14 @@
 import logging
+import time
 
 from telethon import events
 from telethon.sessions import StringSession
 from telethon.sync import TelegramClient
-from telethon.tl.types import MessageMediaPoll, InputMediaPoll
+from telethon.tl.types import InputMediaPoll, MessageMediaPoll
 
 from database import Database, MirrorMessage
-from settings import (API_HASH, API_ID, CHATS, REMOVE_URLS, SESSION_STRING,
-                      TARGET_CHAT, LOG_LEVEL, DB_URL)
+from settings import (API_HASH, API_ID, CHANNEL_MAPPING, CHATS, DB_URL,
+                      LOG_LEVEL, REMOVE_URLS, SESSION_STRING, TIMEOUT_MIRRORING)
 from utils import remove_urls
 
 logging.basicConfig(level=LOG_LEVEL)
@@ -22,19 +23,27 @@ async def handler_new_message(event):
     """
     try:
         logger.debug(f'New message from {event.chat_id}:\n{event.message}')
+        targets = CHANNEL_MAPPING.get(event.chat_id)
+        if targets is None or len(targets) < 1:
+            logger.warning(f'NewMessage. No target channel for {event.chat_id}')
+            return
         if REMOVE_URLS:
             event.message.message = remove_urls(event.message.message)
-        mirror_message = None
-        if isinstance(event.message.media, MessageMediaPoll):
-            mirror_message = await client.send_message(TARGET_CHAT,
-                            file=InputMediaPoll(poll=event.message.media.poll))
-        else:
-            mirror_message = await client.send_message(TARGET_CHAT, event.message)
 
-        if mirror_message is not None:
-            db.insert(MirrorMessage(original_id=event.message.id,
-                                    mirror_id=mirror_message.id,
-                                    original_channel=event.chat_id))
+        for chat in targets:
+            mirror_message = None
+            if isinstance(event.message.media, MessageMediaPoll):
+                mirror_message = await client.send_message(chat,
+                                file=InputMediaPoll(poll=event.message.media.poll))
+            else:
+                mirror_message = await client.send_message(chat, event.message)
+
+            if mirror_message is not None:
+                db.insert(MirrorMessage(original_id=event.message.id,
+                                        original_channel=event.chat_id,
+                                        mirror_id=mirror_message.id,
+                                        mirror_channel=chat))
+            time.sleep(TIMEOUT_MIRRORING)
     except Exception as e:
         logger.error(e, exc_info=True)
 
@@ -45,12 +54,15 @@ async def handler_edit_message(event):
     """
     try:
         logger.debug(f'Edit message {event.message.id} from {event.chat_id}')
-        mirror_message = db.find_by_original_id(event.message.id, event.chat_id)
-        if mirror_message is None:
+        targets = db.find_by_original_id(event.message.id, event.chat_id)
+        if targets is None or len(targets) < 1:
+            logger.warning(f'MessageEdited. No target channel for {event.chat_id}')
             return
         if REMOVE_URLS:
             event.message.message = remove_urls(event.message.message)
-        await client.edit_message(TARGET_CHAT, mirror_message.mirror_id, event.message.message)
+        for chat in targets:
+            await client.edit_message(chat.mirror_channel, chat.mirror_id, event.message.message)
+            time.sleep(TIMEOUT_MIRRORING)
     except Exception as e:
         logger.error(e, exc_info=True)
 

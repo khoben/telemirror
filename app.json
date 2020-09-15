@@ -25,11 +25,11 @@
         "SESSION_STRING": {
             "description": "Telegram session string value"
         },
-        "CHATS":{
-            "description": "Source channels name (@...) or id (-100...) separated by commas"
+        "CHAT_MAPPING":{
+            "description": "Mapping between source and target channels (used id (-100...)). Example: [-100source1,-100source2]:-100target;-100source3:-100target2;"
         },
-        "TARGET_CHAT": {
-            "description": "Mirror/target channel name (@...) or id (-100...)"
+        "TIMEOUT_MIRRORING": {
+            "description": "Delay in sec between sending or editing messages. Default is 0.1 seconds"
         },
         "REMOVE_URLS": {
             "description": "Removing urls from incoming messages (true or false)",

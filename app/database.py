@@ -1,6 +1,6 @@
 import logging
 from contextlib import contextmanager
-
+from typing import List
 from psycopg2 import pool
 from psycopg2.extensions import AsIs, ISQLQuote, adapt
 
@@ -13,13 +13,15 @@ class MirrorMessage:
 
     Args:
         original_id (int): Original message ID
-        mirror_id (int): Mirror message ID
         original_channel (int): Source channel ID
+        mirror_id (int): Mirror message ID
+        mirror_channel (int): Mirror channel ID
     """
-    def __init__(self, original_id: int, mirror_id: int, original_channel: int):
+    def __init__(self, original_id: int, original_channel: int, mirror_id: int, mirror_channel: int):
         self.original_id = original_id
         self.mirror_id = mirror_id
         self.original_channel = original_channel
+        self.mirror_channel = mirror_channel
 
     def __str__(self):
         return f'{self.__class__}: {self.__dict__}'
@@ -34,9 +36,10 @@ class MirrorMessage:
 
     def __getquoted(self):
         _original_id = adapt(self.original_id).getquoted().decode('utf-8')
-        _mirror_id = adapt(self.mirror_id).getquoted().decode('utf-8')
         _original_channel = adapt(self.original_channel).getquoted().decode('utf-8')
-        return AsIs(f'{_original_id}, {_mirror_id}, {_original_channel}')
+        _mirror_id = adapt(self.mirror_id).getquoted().decode('utf-8')
+        _mirror_channel = adapt(self.mirror_channel).getquoted().decode('utf-8')
+        return AsIs(f'{_original_id}, {_original_channel}, {_mirror_id}, {_mirror_channel}')
 
 class Database:
     """Postgres database connection implementation.
@@ -84,8 +87,9 @@ class Database:
                     CREATE TABLE IF NOT EXISTS binding_id
                     (   id serial primary key not null,
                         original_id bigint not null,
+                        original_channel bigint not null,
                         mirror_id bigint not null,
-                        original_channel bigint not null
+                        mirror_channel bigint not null
                     )
                     """
                 )
@@ -105,7 +109,7 @@ class Database:
         with self.__db() as (connection, cursor):
             try:
                 cursor.execute("""
-                                INSERT INTO binding_id (original_id, mirror_id, original_channel)
+                                INSERT INTO binding_id (original_id, original_channel, mirror_id, mirror_channel)
                                 VALUES (%s)
                                 """, (entity,))
             except Exception as e:
@@ -114,21 +118,21 @@ class Database:
             else:
                 connection.commit()
 
-    def find_by_original_id(self, original_id: int, original_channel: int) -> MirrorMessage:
-        """Finds MirrorMessage object with original_id and original_channel values
+    def find_by_original_id(self, original_id: int, original_channel: int) -> List[MirrorMessage]:
+        """Finds MirrorMessage objects with original_id and original_channel values
 
         Args:
             original_id (int): Original message ID
             original_channel (int): Source channel ID
 
         Returns:
-            MirrorMessage
+            List[MirrorMessage]
         """
-        row = None
+        rows = None
         with self.__db() as (_, cursor):
             try:
                 cursor.execute("""
-                                SELECT original_id, mirror_id, original_channel
+                                SELECT original_id, original_channel, mirror_id, mirror_channel
                                 FROM binding_id
                                 WHERE original_id = %s
                                 AND original_channel = %s
@@ -136,5 +140,5 @@ class Database:
             except Exception as e:
                 logger.error(e, exc_info=True)
             else:
-                row = cursor.fetchone()
-        return MirrorMessage(*row) if row else None
+                rows = cursor.fetchall()
+        return [MirrorMessage(*row) for row in rows] if rows else None

@@ -1,5 +1,6 @@
 from os import environ
 from dotenv import load_dotenv
+import re
 
 load_dotenv()
 
@@ -19,20 +20,28 @@ API_ID = environ.get('API_ID')
 # telegram app hash
 API_HASH = environ.get('API_HASH')
 
-# better to use channels id
-# but names also works too
+# channels id to mirroring
 CHATS = []
-CHATS_DATA = environ.get('CHATS')
-if CHATS_DATA is not None:
-    CHATS = [int(chat) if chat[0] == '-' else chat for chat in CHATS_DATA.split(',')]
+
+# channels mapping: [...source] -> target
+CM = environ.get('CHAT_MAPPING')
+CHANNEL_MAPPING = {}
+if CM is not None:
+    CM_PART = CM.split(';')
+    for i in CM_PART:
+        many = re.findall(r'(?:\[)(.+)(?:\]:(\-\d+))', i)
+        one = re.findall(r'(\-\d+):(\-\d+)', i)
+        if len(many) > 0:
+            for i in many[0][0].split(','):
+                CHANNEL_MAPPING.setdefault(int(i), []).append(int(many[0][1]))
+        elif len(one) > 0:
+            CHANNEL_MAPPING.setdefault(int(one[0][0]), []).append(int(one[0][1]))
+    CHATS = list(CHANNEL_MAPPING.keys())
+
+TIMEOUT_MIRRORING = float(environ.get('TIMEOUT_MIRRORING', '0.1'))
 
 # auth session string: can be obtain by run login.py
 SESSION_STRING = environ.get('SESSION_STRING')
-
-# target channel for posting
-TARGET_CHAT = environ.get('TARGET_CHAT')
-if TARGET_CHAT is not None and TARGET_CHAT[0] == '-':
-    TARGET_CHAT = int(TARGET_CHAT)
 
 # remove urls from messages
 REMOVE_URLS = str2bool(environ.get('REMOVE_URLS', 'False'))
