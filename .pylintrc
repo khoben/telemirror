@@ -1,0 +1,7 @@
+[BASIC]
+good-names=
+    i,
+    e,
+    logger,
+[LOGGING]
+disable=logging-fstring-interpolation

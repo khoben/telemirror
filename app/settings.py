@@ -3,16 +3,16 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-def str2bool(v):
+def str2bool(string_value):
     """Converts string representation of boolean to boolean value
 
     Args:
-        v (str): String representation of boolean
+        string_value (str): String representation of boolean
 
     Returns:
         bool: True or False
     """
-    return v.lower() == 'true'
+    return string_value.lower() == 'true'
 
 # telegram app id
 API_ID = environ.get('API_ID')
@@ -41,7 +41,7 @@ REMOVE_URLS = str2bool(environ.get('REMOVE_URLS', 'False'))
 REMOVE_URLS_WL = environ.get('REMOVE_URLS_WL')
 REMOVE_URLS_WL_DATA = None
 if REMOVE_URLS_WL is not None:
-    REMOVE_URLS_WL_DATA = [i for i in REMOVE_URLS_WL.split(',')]
+    REMOVE_URLS_WL_DATA = REMOVE_URLS_WL.split(',')
 
 # postgres credentials
 # connection string

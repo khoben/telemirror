@@ -1,6 +1,6 @@
 import logging
 
-from telethon import events, functions, utils
+from telethon import events
 from telethon.sessions import StringSession
 from telethon.sync import TelegramClient
 from telethon.tl.types import MessageMediaPoll, InputMediaPoll
@@ -25,8 +25,9 @@ async def handler_new_message(event):
         if REMOVE_URLS:
             event.message.message = remove_urls(event.message.message)
         mirror_message = None
-        if (isinstance(event.message.media, MessageMediaPoll)):
-            mirror_message = await client.send_message(TARGET_CHAT, file=InputMediaPoll(poll=event.message.media.poll))
+        if isinstance(event.message.media, MessageMediaPoll):
+            mirror_message = await client.send_message(TARGET_CHAT,
+                            file=InputMediaPoll(poll=event.message.media.poll))
         else:
             mirror_message = await client.send_message(TARGET_CHAT, event.message)
 

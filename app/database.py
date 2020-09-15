@@ -1,62 +1,60 @@
 import logging
 from contextlib import contextmanager
 
-import psycopg2
-from psycopg2 import extras, pool
+from psycopg2 import pool
 from psycopg2.extensions import AsIs, ISQLQuote, adapt
 
 logger = logging.getLogger(__name__)
 
-class MirrorMessage(object):
+class MirrorMessage:
+    """
+    Mirror message class contains id message mappings
+    original_message_id <-> mirror_message_id
 
+    Args:
+        original_id (int): Original message ID
+        mirror_id (int): Mirror message ID
+        original_channel (int): Source channel ID
+    """
     def __init__(self, original_id: int, mirror_id: int, original_channel: int):
-        """
-        Mirror message class contains id message mappings
-        original_message_id <-> mirror_message_id
-
-        Args:
-            original_id (int): Original message ID
-            mirror_id (int): Mirror message ID
-            original_channel (int): Source channel ID
-        """
         self.original_id = original_id
         self.mirror_id = mirror_id
         self.original_channel = original_channel
 
     def __str__(self):
         return f'{self.__class__}: {self.__dict__}'
-    
+
     def __repr__(self):
         return self.__str__()
 
     def __conform__(self, protocol):
         if protocol is ISQLQuote:
-            return self.getquoted()
+            return self.__getquoted()
         return None
 
-    def getquoted(self):
+    def __getquoted(self):
         _original_id = adapt(self.original_id).getquoted().decode('utf-8')
         _mirror_id = adapt(self.mirror_id).getquoted().decode('utf-8')
         _original_channel = adapt(self.original_channel).getquoted().decode('utf-8')
         return AsIs(f'{_original_id}, {_mirror_id}, {_original_channel}')
 
 class Database:
+    """Postgres database connection implementation.
+
+    Provides two user functions that work with 'binding_id' table:
+    - Add new 'MirrorMessage' object to database
+    - Get 'MirrorMessage' object from database by original message ID
+
+    Args:
+        connection_string (str): Postgres connection URL
+        min_conn (int, optional): Min amount of connections. Defaults to MIN_CONN (2).
+        max_conn (int, optional): Max amount of connections. Defaults to MAX_CONN (10).
+    """
 
     MIN_CONN = 2
     MAX_CONN = 10
 
     def __init__(self, connection_string: str, min_conn: int = MIN_CONN, max_conn: int = MAX_CONN):
-        """Postgres database connection implementation.
-
-        Provides two user functions that work with 'binding_id' table:
-        - Add new 'MirrorMessage' object to database
-        - Get 'MirrorMessage' object from database by original message ID
-
-        Args:
-            connection_string (str): Postgres connection URL
-            min_conn (int, optional): Min amount of connections. Defaults to MIN_CONN (2).
-            max_conn (int, optional): Max amount of connections. Defaults to MAX_CONN (10).
-        """
         self.connection_string = connection_string
         self.connection_pool = pool.SimpleConnectionPool(min_conn, max_conn, self.connection_string)
         self.__create_table()
@@ -78,7 +76,7 @@ class Database:
 
     def __create_table(self):
         """Creates 'binding_id' table
-        """        
+        """
         with self.__db() as (connection, cursor):
             try:
                 cursor.execute(
@@ -97,13 +95,13 @@ class Database:
             else:
                 connection.commit()
 
-    
+
     def insert(self, entity: MirrorMessage):
         """Inserts into database 'MirrorMessage' object
 
         Args:
             entity (MirrorMessage): 'MirrorMessage' object
-        """        
+        """
         with self.__db() as (connection, cursor):
             try:
                 cursor.execute("""
@@ -127,7 +125,7 @@ class Database:
             MirrorMessage
         """
         row = None
-        with self.__db() as (connection, cursor):
+        with self.__db() as (_, cursor):
             try:
                 cursor.execute("""
                                 SELECT original_id, mirror_id, original_channel
