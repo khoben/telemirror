@@ -5,6 +5,16 @@ extractor = URLExtract()
 
 
 def remove_urls(text, limit_not_remove = 140, placeholder = '***'):
+    """Removes URLs from given text
+
+    Args:
+        text (str): Text
+        limit_not_remove (int, optional): If text has less than 'limit_not_remove' symbols then dont process it. Defaults to 140.
+        placeholder (str, optional): Placeholder for URL. Defaults to '***'.
+
+    Returns:
+        str: Text
+    """    
     if len(text) < limit_not_remove:
         return text
 
