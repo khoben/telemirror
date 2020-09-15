@@ -1,7 +1,7 @@
 from os import environ
 from dotenv import load_dotenv
 
-load_dotenv('../.env')
+load_dotenv()
 
 def str2bool(v):
     """Converts string representation of boolean to boolean value
