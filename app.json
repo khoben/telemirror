@@ -10,6 +10,11 @@
     "addons": [
         "heroku-postgresql"
     ],
+    "formation": {
+        "run": {
+          "quantity": 1
+        }
+    },
     "env": {
         "API_ID": {
             "description": "Telegram APP ID"
