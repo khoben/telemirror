@@ -8,12 +8,11 @@ from psycopg2.extensions import AsIs, ISQLQuote, adapt
 logger = logging.getLogger(__name__)
 
 class MirrorMessage(object):
-    """
-    Mirror message class contains message id mapping
-    original_message_id <-> mirror_message_id
-    """
+
     def __init__(self, original_id: int, mirror_id: int, original_channel: int):
-        """Ctor
+        """
+        Mirror message class contains id message mappings
+        original_message_id <-> mirror_message_id
 
         Args:
             original_id (int): Original message ID
@@ -46,13 +45,29 @@ class Database:
     MIN_CONN = 2
     MAX_CONN = 10
 
-    def __init__(self, connection_string):
+    def __init__(self, connection_string: str, min_conn: int = MIN_CONN, max_conn: int = MAX_CONN):
+        """Postgres database connection implementation.
+
+        Provides two user functions that work with 'binding_id' table:
+        - Add new 'MirrorMessage' object to database
+        - Get 'MirrorMessage' object from database by original message ID
+
+        Args:
+            connection_string (str): Postgres connection URL
+            min_conn (int, optional): Min amount of connections. Defaults to MIN_CONN (2).
+            max_conn (int, optional): Max amount of connections. Defaults to MAX_CONN (10).
+        """
         self.connection_string = connection_string
-        self.connection_pool = pool.SimpleConnectionPool(self.MIN_CONN, self.MAX_CONN, self.connection_string)
+        self.connection_pool = pool.SimpleConnectionPool(min_conn, max_conn, self.connection_string)
         self.__create_table()
 
     @contextmanager
     def __db(self):
+        """Gets connection from pool and creates cursor within current context
+
+        Yields:
+            (psycopg2.extensions.connection, psycopg2.extensions.cursor): Connection and cursor
+        """
         con = self.connection_pool.getconn()
         cur = con.cursor()
         try:
@@ -62,6 +77,8 @@ class Database:
             self.connection_pool.putconn(con)
 
     def __create_table(self):
+        """Creates 'binding_id' table
+        """        
         with self.__db() as (connection, cursor):
             try:
                 cursor.execute(
@@ -82,6 +99,11 @@ class Database:
 
     
     def insert(self, entity: MirrorMessage):
+        """Inserts into database 'MirrorMessage' object
+
+        Args:
+            entity (MirrorMessage): 'MirrorMessage' object
+        """        
         with self.__db() as (connection, cursor):
             try:
                 cursor.execute("""
@@ -95,7 +117,7 @@ class Database:
                 connection.commit()
 
     def find_by_original_id(self, original_id: int, original_channel: int) -> MirrorMessage:
-        """Getting MirrorMessage object
+        """Finds MirrorMessage object with original_id and original_channel values
 
         Args:
             original_id (int): Original message ID
