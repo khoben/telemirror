@@ -1,6 +1,10 @@
 # Telegram channel mirroring app 
 
-App helps make telegram channel mirror (one to one or many to one). We will use Telegram client API because Bot API have limited functionality. 
+App helps make telegram channel mirror. We will use Telegram client API because Bot API have limited functionality. 
+
+### Functionality
+1. Catching *NewMessage* and *MessageEdited* event and sending them forward
+2. Flexible source and target channels mapping
 
 ## Prepare
 1. [Create Telegram App](https://my.telegram.org/apps)
@@ -14,7 +18,14 @@ App helps make telegram channel mirror (one to one or many to one). We will use 
 API_ID=test # Telegram app ID
 API_HASH=test # Telegram app hash
 SESSION_STRING=test # Telegram session string
-TARGET_CHAT=test    # Target channel to post
+# Mapping between source and target channels
+# Channel id can be fetched by using @messageinformationsbot telegram bot
+# and it always starts with -100 prefix
+# [id1, id2, id3]:id4 means send messages from id1, id2, id3 to id4
+# id5:id6 means send messages from id5 to id6
+# [id1, id2, id3]:id4;id5:id6 semicolon means AND
+CHAT_MAPPING=[-100999999,-100999999,-100999999]:-1009999999;
+TIMEOUT_MIRRORING=0.1 # Delay in sec between sending or editing messages
 REMOVE_URLS=false   # Apply removing URLs on messages
 # Remove URLs whitelist
 REMOVE_URLS_WL=youtube.com,youtu.be,vk.com,twitch.tv,instagram.com
@@ -25,15 +36,6 @@ DB_NAME=test
 DB_USER=test
 DB_HOST=test
 DB_PASS=test
-```
-5. Setup channel sources in .env file (CHATS)
-```bash
-# use channel id more stable
-# it can be fetched by using @messageinformationsbot telegram bot
-# channels id always starts with -100 prefix
-CHATS=-1001104714255,-1001458049012,-1001253406503
-# but also names usable too
-CHATS=@test1,@test2,@test3
 ```
 
 ## Deploy
