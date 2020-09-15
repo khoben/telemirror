@@ -33,6 +33,10 @@
         "REMOVE_URLS_WL": {
             "description": "White list for removing URLs separated by commas",
             "required": false
+        },
+        "LOG_LEVEL": {
+            "description": "Logging level. Valid levels are 'debug', 'info', 'warning', 'error', 'critical'",
+            "required": false
         }
     }
 }

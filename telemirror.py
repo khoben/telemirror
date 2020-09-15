@@ -7,10 +7,10 @@ from telethon.tl.types import MessageMediaPoll, InputMediaPoll
 
 import database
 from settings import (API_HASH, API_ID, CHATS, REMOVE_URLS, SESSION_STRING,
-                      TARGET_CHAT)
+                      TARGET_CHAT, LOG_LEVEL, DB_URL)
 from utils import remove_urls
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=LOG_LEVEL)
 logger = logging.getLogger(__name__)
 
 client = TelegramClient(StringSession(SESSION_STRING), API_ID, API_HASH)

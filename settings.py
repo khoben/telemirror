@@ -45,3 +45,5 @@ DB_HOST = environ.get("DB_HOST")
 # if already not setted
 if DB_URL is None:
     DB_URL = f"postgres://{DB_USER}:{DB_PASS}@{DB_HOST}/{DB_NAME}"
+
+LOG_LEVEL = environ.get("LOG_LEVEL", "INFO").upper()
