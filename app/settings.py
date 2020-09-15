@@ -24,9 +24,7 @@ API_HASH = environ.get('API_HASH')
 CHATS = []
 CHATS_DATA = environ.get('CHATS')
 if CHATS_DATA is not None:
-    CHATS.extend([i for i in CHATS_DATA.split(',') if i[0] == '@'])
-    CHATS.extend([int(i) for i in CHATS_DATA.split(',') if i[0] == '-'])
-
+    CHATS = [int(chat) if chat[0] == '-' else chat for chat in CHATS_DATA.split(',')]
 
 # auth session string: can be obtain by run login.py
 SESSION_STRING = environ.get('SESSION_STRING')
