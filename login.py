@@ -1,7 +1,7 @@
 from telethon.sync import TelegramClient
 from telethon.sessions import StringSession
 
-from settings import (API_HASH, API_ID)
+from app.settings import (API_HASH, API_ID)
 
 # print your session key
 with TelegramClient(StringSession(), API_ID, API_HASH) as client:

@@ -1,17 +1,20 @@
+"""
+Make full copy of telegram channel
+"""
+import time
 from telethon.sessions import StringSession
 from telethon.sync import TelegramClient
 from telethon.tl.types import MessageService
 
-from settings import (API_HASH, API_ID)
-
-"""
-Make full copy of telegram channel
-"""
-
-# put your session string here
+# put your values
+# Telegram API
+API_HASH="xxx"
+API_ID="xxx"
+# Session string by login.py
 SESSION_STRING = "xxx"
 SOURCE_CHAT = '@xxx'
 TARGET_CHAT = '@xxx'
+# Timeout after 50 messages
 LIMIT_TO_WAIT = 50
 
 
