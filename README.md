@@ -50,17 +50,11 @@ pip install -r requirements.txt
 ```
 3. Run
 ```bash
-python telemirror.py
+python app/telemirror.py
 ```
 
 ## Heroku
-1. Hit the button
-
 [![Deploy](https://www.herokucdn.com/deploy/button.svg)](https://heroku.com/deploy?template=https://github.com/khoben/telemirror)
-
-2. Start **run** dyno
-
-![Start heroku dyno](/images/startdyno.png)
 
 or
 
