@@ -19,7 +19,7 @@ db = Database(DB_URL)
 @client.on(events.NewMessage(chats=CHATS))
 async def handler_new_message(event):
     try:
-        logger.debug(f'New message:\n{event.message}')
+        logger.debug(f'New message from {event.chat_id}:\n{event.message}')
         if REMOVE_URLS:
             event.message.message = remove_urls(event.message.message)
         mirror_message = None
@@ -39,7 +39,7 @@ async def handler_new_message(event):
 @client.on(events.MessageEdited(chats=CHATS))
 async def handler_edit_message(event):
     try:
-        logger.debug('Edit message')
+        logger.debug(f'Edit message {event.message.id} from {event.chat_id}')
         mirror_message = db.find_by_original_id(event.message.id, event.chat_id)
         if mirror_message is None:
             return
