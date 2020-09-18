@@ -8,7 +8,8 @@ from telethon.tl.types import InputMediaPoll, MessageMediaPoll
 
 from database import Database, MirrorMessage
 from settings import (API_HASH, API_ID, CHANNEL_MAPPING, CHATS, DB_URL,
-                      LOG_LEVEL, REMOVE_URLS, SESSION_STRING, TIMEOUT_MIRRORING)
+                       LIMIT_TO_WAIT, LOG_LEVEL, REMOVE_URLS, SESSION_STRING,
+                       TIMEOUT_MIRRORING)
 from utils import remove_urls
 
 logging.basicConfig(level=LOG_LEVEL)
@@ -29,7 +30,7 @@ async def handler_new_message(event):
             return
         if REMOVE_URLS:
             event.message.message = remove_urls(event.message.message)
-
+        sent = 0
         for chat in targets:
             mirror_message = None
             if isinstance(event.message.media, MessageMediaPoll):
@@ -43,7 +44,11 @@ async def handler_new_message(event):
                                         original_channel=event.chat_id,
                                         mirror_id=mirror_message.id,
                                         mirror_channel=chat))
-            time.sleep(TIMEOUT_MIRRORING)
+            sent += 1
+            if sent > LIMIT_TO_WAIT:
+                sent = 0
+                time.sleep(TIMEOUT_MIRRORING)
+
     except Exception as e:
         logger.error(e, exc_info=True)
 
@@ -60,9 +65,13 @@ async def handler_edit_message(event):
             return
         if REMOVE_URLS:
             event.message.message = remove_urls(event.message.message)
+        sent = 0
         for chat in targets:
             await client.edit_message(chat.mirror_channel, chat.mirror_id, event.message.message)
-            time.sleep(TIMEOUT_MIRRORING)
+            sent += 1
+            if sent > LIMIT_TO_WAIT:
+                sent = 0
+                time.sleep(TIMEOUT_MIRRORING)
     except Exception as e:
         logger.error(e, exc_info=True)
 

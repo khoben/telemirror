@@ -17,7 +17,8 @@ class MirrorMessage:
         mirror_id (int): Mirror message ID
         mirror_channel (int): Mirror channel ID
     """
-    def __init__(self, original_id: int, original_channel: int, mirror_id: int, mirror_channel: int):
+    def __init__(self, original_id: int, original_channel: int,
+                            mirror_id: int, mirror_channel: int):
         self.original_id = original_id
         self.mirror_id = mirror_id
         self.original_channel = original_channel
