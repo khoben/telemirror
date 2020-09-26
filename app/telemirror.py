@@ -12,8 +12,10 @@ from settings import (API_HASH, API_ID, CHANNEL_MAPPING, CHATS, DB_URL,
                        TIMEOUT_MIRRORING)
 from utils import remove_urls
 
-logging.basicConfig(level=LOG_LEVEL)
+logging.basicConfig()
 logger = logging.getLogger(__name__)
+logger.setLevel(level= LOG_LEVEL)
+
 
 client = TelegramClient(StringSession(SESSION_STRING), API_ID, API_HASH)
 db = Database(DB_URL)
