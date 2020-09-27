@@ -24,21 +24,17 @@ API_HASH = environ.get('API_HASH')
 # channels id to mirroring
 CHATS = []
 
-# channels mapping: source -> [...targets]
+# channels mapping
+# [source:target1,target2];[source2:...]
 CM = environ.get('CHAT_MAPPING')
 CHANNEL_MAPPING = {}
 if CM is not None:
-    CM_PART = CM.split(';')
-    for part in CM_PART:
-        # [id1,id2]:id3
-        many = re.findall(r'(?:\[)(.+)(?:\]:(\-\d+))', part)
-        # id4:id5
-        one = re.findall(r'(\-\d+):(\-\d+)', part)
-        if len(many) > 0:
-            for source in many[0][0].split(','):
-                CHANNEL_MAPPING.setdefault(int(source), []).append(int(many[0][1]))
-        elif len(one) > 0:
-            CHANNEL_MAPPING.setdefault(int(one[0][0]), []).append(int(one[0][1]))
+    matches = re.findall(r'\[?((?:-100\d+,?)+):((?:-100\d+,?)+)\]?', CM, re.MULTILINE)
+    for match in matches:
+        sources = [int(val) for val in match[0].split(',')]
+        targets = [int(val) for val in match[1].split(',')]
+        for source in sources:
+            CHANNEL_MAPPING.setdefault(source, []).extend(targets)
     CHATS = list(CHANNEL_MAPPING.keys())
 
 TIMEOUT_MIRRORING = float(environ.get('TIMEOUT_MIRRORING', '0.1'))

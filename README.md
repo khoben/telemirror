@@ -21,10 +21,10 @@ SESSION_STRING=test # Telegram session string
 # Mapping between source and target channels
 # Channel id can be fetched by using @messageinformationsbot telegram bot
 # and it always starts with -100 prefix
-# [id1, id2, id3]:id4 means send messages from id1, id2, id3 to id4
+# [id1, id2, id3:id4] means send messages from id1, id2, id3 to id4
 # id5:id6 means send messages from id5 to id6
-# [id1, id2, id3]:id4;id5:id6 semicolon means AND
-CHAT_MAPPING=[-100999999,-100999999,-100999999]:-1009999999;
+# [id1, id2, id3:id4];[id5:id6] semicolon means AND
+CHAT_MAPPING=[-100999999,-100999999,-100999999:-1009999999];
 TIMEOUT_MIRRORING=0.1 # Delay in sec between sending or editing messages
 REMOVE_URLS=false   # Apply removing URLs on messages
 # Remove URLs whitelist
