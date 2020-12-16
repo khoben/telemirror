@@ -6,6 +6,7 @@ from psycopg2.extensions import AsIs, ISQLQuote, adapt
 
 logger = logging.getLogger(__name__)
 
+
 class MirrorMessage:
     """
     Mirror message class contains id message mappings
@@ -17,8 +18,9 @@ class MirrorMessage:
         mirror_id (int): Mirror message ID
         mirror_channel (int): Mirror channel ID
     """
+
     def __init__(self, original_id: int, original_channel: int,
-                            mirror_id: int, mirror_channel: int):
+                 mirror_id: int, mirror_channel: int):
         self.original_id = original_id
         self.mirror_id = mirror_id
         self.original_channel = original_channel
@@ -37,10 +39,13 @@ class MirrorMessage:
 
     def __getquoted(self):
         _original_id = adapt(self.original_id).getquoted().decode('utf-8')
-        _original_channel = adapt(self.original_channel).getquoted().decode('utf-8')
+        _original_channel = adapt(
+            self.original_channel).getquoted().decode('utf-8')
         _mirror_id = adapt(self.mirror_id).getquoted().decode('utf-8')
-        _mirror_channel = adapt(self.mirror_channel).getquoted().decode('utf-8')
+        _mirror_channel = adapt(
+            self.mirror_channel).getquoted().decode('utf-8')
         return AsIs(f'{_original_id}, {_original_channel}, {_mirror_id}, {_mirror_channel}')
+
 
 class Database:
     """Postgres database connection implementation.
@@ -60,7 +65,8 @@ class Database:
 
     def __init__(self, connection_string: str, min_conn: int = MIN_CONN, max_conn: int = MAX_CONN):
         self.connection_string = connection_string
-        self.connection_pool = pool.SimpleConnectionPool(min_conn, max_conn, self.connection_string)
+        self.connection_pool = pool.SimpleConnectionPool(
+            min_conn, max_conn, self.connection_string)
         self.__create_table()
 
     @contextmanager
@@ -99,7 +105,6 @@ class Database:
                 connection.rollback()
             else:
                 connection.commit()
-
 
     def insert(self, entity: MirrorMessage):
         """Inserts into database 'MirrorMessage' object

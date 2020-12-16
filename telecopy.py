@@ -8,8 +8,8 @@ from telethon.tl.types import MessageService
 
 # put your values
 # Telegram API
-API_HASH="xxx"
-API_ID="xxx"
+API_HASH = "xxx"
+API_ID = "xxx"
 # Session string by login.py
 SESSION_STRING = "xxx"
 SOURCE_CHAT = '@xxx'

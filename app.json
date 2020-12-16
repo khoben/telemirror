@@ -12,7 +12,7 @@
     ],
     "formation": {
         "run": {
-          "quantity": 1
+            "quantity": 1
         }
     },
     "env": {
@@ -25,7 +25,7 @@
         "SESSION_STRING": {
             "description": "Telegram session string value"
         },
-        "CHAT_MAPPING":{
+        "CHAT_MAPPING": {
             "description": "Mapping between source and target channels (with their IDs (-100...)). Example: [-100source1,-100source2:-100target];[-100source3:-100target2];"
         },
         "TIMEOUT_MIRRORING": {

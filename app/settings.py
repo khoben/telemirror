@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+
 def str2bool(string_value):
     """Converts string representation of boolean to boolean value
 
@@ -15,6 +16,7 @@ def str2bool(string_value):
         bool: True or False
     """
     return string_value.lower() == 'true'
+
 
 # telegram app id
 API_ID = environ.get('API_ID')
@@ -29,7 +31,8 @@ CHATS = []
 CM = environ.get('CHAT_MAPPING')
 CHANNEL_MAPPING = {}
 if CM is not None:
-    matches = re.findall(r'\[?((?:-100\d+,?)+):((?:-100\d+,?)+)\]?', CM, re.MULTILINE)
+    matches = re.findall(
+        r'\[?((?:-100\d+,?)+):((?:-100\d+,?)+)\]?', CM, re.MULTILINE)
     for match in matches:
         sources = [int(val) for val in match[0].split(',')]
         targets = [int(val) for val in match[1].split(',')]
