@@ -2,6 +2,8 @@
 
 App helps make telegram channel mirror. We will use Telegram client API because Bot API have limited functionality. 
 
+## Be careful with forwards from channels with [`restrict saving content`](https://telegram.org/blog/protected-content-delete-by-date-and-more) enabled, this can lead to an account ban.
+
 ### Functionality
 1. Catching *NewMessage* and *MessageEdited* event and sending them forward
 2. Flexible source and target channels mapping
