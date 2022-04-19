@@ -80,8 +80,7 @@ async def handler_new_message(event):
         logger.debug(f'New message from {event.chat_id}:\n{event.message}')
         targets = CHANNEL_MAPPING.get(event.chat_id)
         if targets is None or len(targets) < 1:
-            logger.warning(
-                f'NewMessage. No target channel for {event.chat_id}')
+            logger.warning(f'NewMessage. No target channel for {event.chat_id}')
             return
         if REMOVE_URLS:
             event.message = remove_url_from_message(event.message)
@@ -116,8 +115,7 @@ async def handler_edit_message(event):
         logger.debug(f'Edit message {event.message.id} from {event.chat_id}')
         targets = db.find_by_original_id(event.message.id, event.chat_id)
         if targets is None or len(targets) < 1:
-            logger.warning(
-                f'MessageEdited. No target channel for {event.chat_id}')
+            logger.warning(f'MessageEdited. No target channel for {event.chat_id}')
             return
         if REMOVE_URLS:
             event.message = remove_url_from_message(event.message)
