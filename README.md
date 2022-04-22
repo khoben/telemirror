@@ -1,12 +1,11 @@
-# Telegram channel mirroring app 
-
-App helps make telegram channel mirror. We will use Telegram client API because Bot API have limited functionality. 
-
-## Be careful with forwards from channels with [`restrict saving content`](https://telegram.org/blog/protected-content-delete-by-date-and-more) enabled, this can lead to an account ban.
+# Mirroring/forwarding Telegram channel messages app via Telegram Client API (telethon)
 
 ### Functionality
-1. Catching *NewMessage* and *MessageEdited* event and sending them forward
-2. Flexible source and target channels mapping
+1. Catching *NewMessage* and *MessageEdited* event
+2. Auto forward messages as copy
+3. Flexible source and target channels mapping
+
+### Be careful with forwards from channels with [`restrict saving content`](https://telegram.org/blog/protected-content-delete-by-date-and-more) enabled, this can lead to an account ban.
 
 ## Prepare
 1. [Create Telegram App](https://my.telegram.org/apps)
@@ -38,26 +37,14 @@ DB_NAME=test
 DB_USER=test
 DB_HOST=test
 DB_PASS=test
+# Using in-memory database like dictionary instead of Postgres DB (true or false). Default is false
+USE_MEMORY_DB=false
+LOG_LEVEL=INFO
 ```
 
 ## Deploy
-### Locally
-1. Create and activate python virtual environment
-```bash
-python -m venv myvenv
-source myvenv/Scripts/activate # linux
-myvenv/Scripts/activate # windows
-```
-2. Install depencies
-```bash
-pip install -r requirements.txt
-```
-3. Run
-```bash
-python app/telemirror.py
-```
 
-## Heroku
+### Host on Heroku:
 [![Deploy](https://www.herokucdn.com/deploy/button.svg)](https://heroku.com/deploy?template=https://github.com/khoben/telemirror)
 
 or
@@ -87,4 +74,20 @@ or
 6. Start heroku app
 ```
     heroku ps:scale run=1
+```
+
+### On your PC:
+1. Create and activate python virtual environment
+```bash
+python -m venv myvenv
+source myvenv/Scripts/activate # linux
+myvenv/Scripts/activate # windows
+```
+2. Install depencies
+```bash
+pip install -r requirements.txt
+```
+3. Run
+```bash
+python app/telemirror.py
 ```

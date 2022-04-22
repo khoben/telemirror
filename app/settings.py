@@ -55,7 +55,7 @@ if REMOVE_URLS_WL is not None:
 
 # postgres credentials
 # connection string
-DB_URL = environ.get('DATABASE_URL')
+DB_URL = environ.get("DATABASE_URL")
 # or postgres credentials
 DB_NAME = environ.get("DB_NAME")
 DB_USER = environ.get("DB_USER")
@@ -64,5 +64,7 @@ DB_HOST = environ.get("DB_HOST")
 # if connection string wasnt set then build it from credentials
 if DB_URL is None:
     DB_URL = f"postgres://{DB_USER}:{DB_PASS}@{DB_HOST}/{DB_NAME}"
+
+USE_MEMORY_DB = str2bool(environ.get("USE_MEMORY_DB", "False"))
 
 LOG_LEVEL = environ.get("LOG_LEVEL", "INFO").upper()
