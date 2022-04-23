@@ -24,7 +24,8 @@ class UrlFilter(MesssageFilter):
         if whitelist is None:
             whitelist = []
         self._whitelist = whitelist
-        self._url_extractor = URLExtract()
+        self._extract_url = URLExtract()
+        self._extract_url.ignore_list = whitelist
 
     def process(self, message: types.Message) -> types.Message:
         # replace plain text
@@ -37,17 +38,10 @@ class UrlFilter(MesssageFilter):
         return message
 
     def _filter_urls(self, text: str) -> str:
-        urls = self._url_extractor.find_urls(text)
+        urls = self._extract_url.find_urls(text, only_unique=True)
         for url in urls:
-            allowed = False
-            for white_listed in self._whitelist:
-                if url.find(white_listed) != -1:
-                    allowed = True
-                    break
-            if allowed is False:
-                text = text.replace(url, self._placeholder)
+            text = text.replace(url, self._placeholder)
 
-        # @test => placeholder
         text = re.sub(r'@[\d\w]*', self._placeholder, text)
 
         return text
