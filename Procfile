@@ -1,1 +1,1 @@
-run: python app/telemirror.py
+run: python app/main.py

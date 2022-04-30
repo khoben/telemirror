@@ -1,33 +1,41 @@
 import re
 from abc import abstractmethod
-from typing import List, Protocol
+from typing import List, Protocol, Set, Union
 
-from telethon import types
+from telethon import custom, types
 from urlextract import URLExtract
+
+MessageLike = Union[types.Message, custom.Message]
 
 
 class MesssageFilter(Protocol):
     @abstractmethod
-    def process(self, message: types.Message) -> types.Message:
+    def process(self, message: MessageLike) -> MessageLike:
         raise NotImplementedError
 
 
 class EmptyFilter(MesssageFilter):
-    def process(self, message: types.Message) -> types.Message:
+    def process(self, message: MessageLike) -> MessageLike:
         return message
 
 
 class UrlFilter(MesssageFilter):
 
-    def __init__(self: 'UrlFilter', placeholder: str = '***', whitelist: List[str] = None) -> None:
+    def __init__(
+        self: 'UrlFilter',
+        placeholder: str = '***',
+        blacklist: Union[List[str], Set[str]] = {},
+        whitelist: Union[List[str], Set[str]] = {}
+    ) -> None:
         self._placeholder = placeholder
-        if whitelist is None:
-            whitelist = []
         self._whitelist = whitelist
+        self._blacklist = blacklist
         self._extract_url = URLExtract()
         self._extract_url.ignore_list = whitelist
+        # will be available with future version of URLExtract
+        # self._extract_url.host_limit_list = blacklist
 
-    def process(self, message: types.Message) -> types.Message:
+    def process(self, message: MessageLike) -> MessageLike:
         # replace plain text
         message.message = self._filter_urls(message.message)
         # replace UrlEntities
@@ -58,7 +66,7 @@ class RestrictSavingContentBypassFilter(MesssageFilter):
     ```
     """
 
-    def process(self, message: types.Message) -> types.Message:
+    def process(self, message: MessageLike) -> MessageLike:
         raise NotImplementedError
 
 
@@ -67,7 +75,7 @@ class GroupFilter(MesssageFilter):
     def __init__(self, *arg: MesssageFilter) -> None:
         self._filters = list(arg)
 
-    def process(self, message: types.Message) -> types.Message:
+    def process(self, message: MessageLike) -> MessageLike:
         for f in self._filters:
             message = f.process(message)
         return message

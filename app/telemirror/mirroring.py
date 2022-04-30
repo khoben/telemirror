@@ -6,8 +6,8 @@ from telethon.sessions import StringSession
 from telethon.sync import TelegramClient
 from telethon.tl import types
 
-from app.messagefilters import EmptyFilter, MesssageFilter
-from app.storage import Database, MirrorMessage
+from telemirror.messagefilters import EmptyFilter, MesssageFilter
+from telemirror.storage import Database, MirrorMessage
 
 
 class EventHandlers:

@@ -1,9 +1,13 @@
+"""
+Parses properties from .env file
+"""
+
 import re
 from os import environ
 
-from dotenv import load_dotenv
+import dotenv
 
-load_dotenv()
+dotenv.load_dotenv()
 
 
 def str2bool(string_value):
@@ -51,7 +55,12 @@ REMOVE_URLS = str2bool(environ.get('REMOVE_URLS', 'False'))
 REMOVE_URLS_WL = environ.get('REMOVE_URLS_WL')
 REMOVE_URLS_WL_DATA = None
 if REMOVE_URLS_WL is not None:
-    REMOVE_URLS_WL_DATA = REMOVE_URLS_WL.split(',')
+    REMOVE_URLS_WL_DATA = set(REMOVE_URLS_WL.split(','))
+
+REMOVE_URLS_LIST = environ.get('REMOVE_URLS_LIST')
+REMOVE_URLS_LIST_DATA = None
+if REMOVE_URLS_LIST is not None:
+    REMOVE_URLS_LIST_DATA = set(REMOVE_URLS_LIST.split(','))
 
 # postgres credentials
 # connection string

@@ -36,8 +36,12 @@
             "description": "Removing urls from incoming messages (true or false)",
             "required": false
         },
+        "REMOVE_URLS_LIST": {
+            "description": "List of URLs to be removed separated by commas",
+            "required": false
+        },
         "REMOVE_URLS_WL": {
-            "description": "White list for removing URLs separated by commas",
+            "description": "White list for removing URLs separated by commas. Will be ignored if REMOVE_URLS_LIST is not empty",
             "required": false
         },
         "USE_MEMORY_DB": {
