@@ -28,12 +28,10 @@ class UrlFilter(MesssageFilter):
         whitelist: Union[List[str], Set[str]] = {}
     ) -> None:
         self._placeholder = placeholder
-        self._whitelist = whitelist
-        self._blacklist = blacklist
         self._extract_url = URLExtract()
-        self._extract_url.ignore_list = whitelist
-        # will be available with future version of URLExtract
-        # self._extract_url.host_limit_list = blacklist
+        self._extract_url.host_limit_list = blacklist
+        if not blacklist:
+            self._extract_url.ignore_list = whitelist
 
     def process(self, message: MessageLike) -> MessageLike:
         # replace plain text
