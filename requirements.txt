@@ -1,6 +1,7 @@
 pysocks==1.7.1
 # telethon==1.24.0
 newthon==1.26.0
-urlextract==1.5.0
+# urlextract==1.5.0
+git+https://github.com/khoben/URLExtract@feature/limit-list#urlextract
 python-dotenv==0.20.0
 psycopg2-binary==2.9.3
