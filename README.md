@@ -23,7 +23,7 @@
 
     **SESSION_STRING** can be obtained by running [login.py](login.py) with putted **API_ID** and **API_HASH** before.
 
-    Channels ID can be fetched by using [@messageinformationsbot](t.me/messageinformationsbot) Telegram bot (just send it a message from the desired channel).
+    Channels ID can be fetched by using [@messageinformationsbot](https://t.me/messageinformationsbot) Telegram bot (just send it a message from the desired channel).
     
     <details>
         <summary><b>.env overview</b></summary>
