@@ -29,7 +29,7 @@ class UrlFilter(MesssageFilter):
     ) -> None:
         self._placeholder = placeholder
         self._extract_url = URLExtract()
-        self._extract_url.host_limit_list = blacklist
+        self._extract_url.permit_list = blacklist
         if not blacklist:
             self._extract_url.ignore_list = whitelist
 
