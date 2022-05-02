@@ -1,6 +1,8 @@
 pysocks==1.7.1
 # telethon==1.24.0
 newthon==1.26.0
-urlextract==1.5.0
-python-dotenv==0.20.0
+cryptg==0.3
+# urlextract==1.5.0
+git+https://github.com/khoben/URLExtract@v1.5.0-permit-list#urlextract
 psycopg2-binary==2.9.3
+python-decouple==3.6

@@ -28,16 +28,20 @@
         "CHAT_MAPPING": {
             "description": "Mapping between source and target channels (with their IDs (-100...)). Example: [-100source1,-100source2:-100target];[-100source3:-100target2];"
         },
-        "TIMEOUT_MIRRORING": {
-            "description": "Delay in sec between sending or editing messages. Default is 0.1 seconds",
-            "required": false
-        },
         "REMOVE_URLS": {
             "description": "Removing urls from incoming messages (true or false)",
             "required": false
         },
+        "REMOVE_URLS_LIST": {
+            "description": "List of URLs to be removed separated by commas",
+            "required": false
+        },
         "REMOVE_URLS_WL": {
-            "description": "White list for removing URLs separated by commas",
+            "description": "White list for removing URLs separated by commas. Will be ignored if REMOVE_URLS_LIST is not empty",
+            "required": false
+        },
+        "USE_MEMORY_DB": {
+            "description": "Using in-memory database like dictionary instead of Postgres DB (true or false). Default is false",
             "required": false
         },
         "LOG_LEVEL": {

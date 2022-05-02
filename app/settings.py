@@ -1,68 +1,68 @@
-import re
-from os import environ
-
-from dotenv import load_dotenv
-
-load_dotenv()
-
-
-def str2bool(string_value):
-    """Converts string representation of boolean to boolean value
-
-    Args:
-        string_value (str): String representation of boolean
-
-    Returns:
-        bool: True or False
-    """
-    return string_value.lower() == 'true'
-
+"""
+Parses properties from .env file
+"""
+from decouple import config, Csv
 
 # telegram app id
-API_ID = environ.get('API_ID')
+API_ID: str = config("API_ID")
 # telegram app hash
-API_HASH = environ.get('API_HASH')
+API_HASH: str = config("API_HASH")
 
-# channels id to mirroring
-CHATS = []
 
-# channels mapping
-# [source:target1,target2];[source2:...]
-CM = environ.get('CHAT_MAPPING')
-CHANNEL_MAPPING = {}
-if CM is not None:
+def cast_mapping(v: str) -> dict:
+    if v is None:
+        return {}
+
+    import re
+    mapping = {}
     matches = re.findall(
-        r'\[?((?:-100\d+,?)+):((?:-100\d+,?)+)\]?', CM, re.MULTILINE)
+        r'\[?((?:-100\d+,?)+):((?:-100\d+,?)+)\]?', v, re.MULTILINE)
     for match in matches:
         sources = [int(val) for val in match[0].split(',')]
         targets = [int(val) for val in match[1].split(',')]
         for source in sources:
-            CHANNEL_MAPPING.setdefault(source, []).extend(targets)
-    CHATS = list(CHANNEL_MAPPING.keys())
+            mapping.setdefault(source, []).extend(targets)
+    return mapping
 
-TIMEOUT_MIRRORING = float(environ.get('TIMEOUT_MIRRORING', '0.1'))
-# amount messages before timeout
-LIMIT_TO_WAIT = 50
+
+# channels mapping
+# [source:target1,target2];[source2:...]
+CHAT_MAPPING: dict = config("CHAT_MAPPING", cast=cast_mapping, default={})
+
+# channels id to mirroring
+SOURCE_CHATS: list = list(CHAT_MAPPING.keys())
+
 # auth session string: can be obtain by run login.py
-SESSION_STRING = environ.get('SESSION_STRING')
+SESSION_STRING: str = config("SESSION_STRING")
 
 # remove urls from messages
-REMOVE_URLS = str2bool(environ.get('REMOVE_URLS', 'False'))
-REMOVE_URLS_WL = environ.get('REMOVE_URLS_WL')
-REMOVE_URLS_WL_DATA = None
-if REMOVE_URLS_WL is not None:
-    REMOVE_URLS_WL_DATA = REMOVE_URLS_WL.split(',')
+REMOVE_URLS: bool = config("REMOVE_URLS", cast=bool, default=False)
+# remove urls whitelist
+REMOVE_URLS_WHITELIST: list = config(
+    "REMOVE_URLS_WL", cast=Csv(), default=None)
+# remove urls only this URLs
+REMOVE_URLS_LIST: list = config("REMOVE_URLS_LIST", cast=Csv(), default=None)
+
+USE_MEMORY_DB: bool = config("USE_MEMORY_DB", default=False, cast=bool)
 
 # postgres credentials
 # connection string
-DB_URL = environ.get('DATABASE_URL')
+DB_URL: str = config("DATABASE_URL", default=None)
 # or postgres credentials
-DB_NAME = environ.get("DB_NAME")
-DB_USER = environ.get("DB_USER")
-DB_PASS = environ.get("DB_PASS")
-DB_HOST = environ.get("DB_HOST")
+DB_NAME: str = config("DB_NAME", default=None)
+DB_USER: str = config("DB_USER", default=None)
+DB_PASS: str = config("DB_PASS", default=None)
+DB_HOST: str = config("DB_HOST", default=None)
+
+if not USE_MEMORY_DB and DB_URL is None and DB_HOST is None:
+    raise Exception("The database configuration is incorrect. "
+                    "Please provide valid DB_URL (or DB_HOST, DB_NAME, DB_USER, DB_PASS) "
+                    "or set USE_MEMORY_DB to True to use in-memory database.")
+
+DB_PROTOCOL: str = "postgres"
+
 # if connection string wasnt set then build it from credentials
 if DB_URL is None:
-    DB_URL = f"postgres://{DB_USER}:{DB_PASS}@{DB_HOST}/{DB_NAME}"
+    DB_URL = f"{DB_PROTOCOL}://{DB_USER}:{DB_PASS}@{DB_HOST}/{DB_NAME}"
 
-LOG_LEVEL = environ.get("LOG_LEVEL", "INFO").upper()
+LOG_LEVEL: str = config("LOG_LEVEL", default="INFO").upper()
