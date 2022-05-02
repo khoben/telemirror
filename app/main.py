@@ -1,6 +1,6 @@
 import logging
 
-from settings import (API_HASH, API_ID, CHANNEL_MAPPING, DB_URL, LOG_LEVEL,
+from settings import (API_HASH, API_ID, CHAT_MAPPING, DB_URL, LOG_LEVEL,
                       REMOVE_URLS)
 from settings import REMOVE_URLS_LIST as URLS_BLACKLIST
 from settings import REMOVE_URLS_WHITELIST as URLS_WHITELIST
@@ -29,7 +29,7 @@ def main():
     client = MirrorTelegramClient(SESSION_STRING, API_ID, API_HASH)
     client.configure_mirroring(
         source_chats=SOURCE_CHATS,
-        mirror_mapping=CHANNEL_MAPPING,
+        mirror_mapping=CHAT_MAPPING,
         database=database,
         message_filter=message_filter,
         logger=logger
