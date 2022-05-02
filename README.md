@@ -118,7 +118,7 @@ or manually:
     source myvenv/Scripts/activate # linux
     myvenv/Scripts/activate # windows
     ```
-2. Install depencies
+2. Install dependencies
 
     ```bash
     pip install -r requirements.txt
