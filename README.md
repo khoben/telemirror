@@ -42,8 +42,6 @@
     # id5:id6 means send messages from id5 to id6
     # [id1, id2, id3:id4];[id5:id6] semicolon means AND
     CHAT_MAPPING=[-100999999,-100999999,-100999999:-1009999999];
-    # Delay between sending or editing messages, in secs
-    TIMEOUT_MIRRORING=0.1
     # Enable/disable removing URLs on messages
     REMOVE_URLS=false
     # List of URLs to be removed
