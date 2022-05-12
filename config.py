@@ -10,11 +10,13 @@ API_HASH: str = config("API_HASH")
 
 
 def cast_mapping(v: str) -> dict:
-    if v is None:
-        return {}
+    mapping = {}
+
+    if not v:
+        return mapping
 
     import re
-    mapping = {}
+
     matches = re.findall(
         r'\[?((?:-100\d+,?)+):((?:-100\d+,?)+)\]?', v, re.MULTILINE)
     for match in matches:
@@ -27,7 +29,11 @@ def cast_mapping(v: str) -> dict:
 
 # channels mapping
 # [source:target1,target2];[source2:...]
-CHAT_MAPPING: dict = config("CHAT_MAPPING", cast=cast_mapping, default={})
+CHAT_MAPPING: dict = config("CHAT_MAPPING", cast=cast_mapping, default="")
+
+if not CHAT_MAPPING:
+    raise Exception("The chat mapping configuration is incorrect. "
+                    "Please provide valid non-empty CHAT_MAPPING environment variable.")
 
 # channels id to mirroring
 SOURCE_CHATS: list = list(CHAT_MAPPING.keys())
@@ -38,10 +44,11 @@ SESSION_STRING: str = config("SESSION_STRING")
 # remove urls from messages
 REMOVE_URLS: bool = config("REMOVE_URLS", cast=bool, default=False)
 # remove urls whitelist
-REMOVE_URLS_WHITELIST: list = config(
-    "REMOVE_URLS_WL", cast=Csv(), default=None)
+REMOVE_URLS_WHITELIST: set = config(
+    "REMOVE_URLS_WL", cast=Csv(post_process=set), default="")
 # remove urls only this URLs
-REMOVE_URLS_LIST: list = config("REMOVE_URLS_LIST", cast=Csv(), default=None)
+REMOVE_URLS_LIST: set = config(
+    "REMOVE_URLS_LIST", cast=Csv(post_process=set), default="")
 
 USE_MEMORY_DB: bool = config("USE_MEMORY_DB", default=False, cast=bool)
 

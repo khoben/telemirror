@@ -1,8 +1,8 @@
-from telethon.sync import TelegramClient
-from telethon.sessions import StringSession
+"""
+Prints telegram session string key
+"""
+from config import API_HASH, API_ID
+from telemirror.mirroring import MirrorTelegramClient
 
-from app.settings import (API_HASH, API_ID)
-
-# print your session key
-with TelegramClient(StringSession(), API_ID, API_HASH) as client:
-    print(client.session.save())
+with MirrorTelegramClient(api_id=API_ID, api_hash=API_HASH) as client:
+    client.print_session_string()

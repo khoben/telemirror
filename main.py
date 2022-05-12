@@ -1,11 +1,11 @@
 import logging
 
-from settings import (API_HASH, API_ID, CHAT_MAPPING, DB_URL, LOG_LEVEL,
-                      REMOVE_URLS)
-from settings import REMOVE_URLS_LIST as URLS_BLACKLIST
-from settings import REMOVE_URLS_WHITELIST as URLS_WHITELIST
-from settings import SESSION_STRING, SOURCE_CHATS, USE_MEMORY_DB
-from telemirror.messagefilters import EmptyFilter, UrlFilter
+from config import (API_HASH, API_ID, CHAT_MAPPING, DB_URL, LOG_LEVEL,
+                    REMOVE_URLS)
+from config import REMOVE_URLS_LIST as URLS_BLACKLIST
+from config import REMOVE_URLS_WHITELIST as URLS_WHITELIST
+from config import SESSION_STRING, SOURCE_CHATS, USE_MEMORY_DB
+from telemirror.messagefilters import EmptyMessageFilter, UrlMessageFilter
 from telemirror.mirroring import MirrorTelegramClient
 from telemirror.storage import Database, InMemoryDatabase, PostgresDatabase
 
@@ -21,10 +21,10 @@ def main():
         database = PostgresDatabase(DB_URL, logger=logger)
 
     if REMOVE_URLS:
-        message_filter = UrlFilter(
+        message_filter = UrlMessageFilter(
             blacklist=URLS_BLACKLIST, whitelist=URLS_WHITELIST)
     else:
-        message_filter = EmptyFilter()
+        message_filter = EmptyMessageFilter()
 
     client = MirrorTelegramClient(SESSION_STRING, API_ID, API_HASH)
     client.configure_mirroring(

@@ -11,23 +11,50 @@ MessageLike = Union[types.Message, custom.Message]
 class MesssageFilter(Protocol):
     @abstractmethod
     def process(self, message: MessageLike) -> MessageLike:
+        """Apply filter to **message**
+
+        Args:
+            message (`MessageLike`): Source message
+
+        Returns:
+            `MessageLike`: Filtered message
+        """
         raise NotImplementedError
 
 
-class EmptyFilter(MesssageFilter):
+class EmptyMessageFilter(MesssageFilter):
+    """Do nothing with message"""
+
     def process(self, message: MessageLike) -> MessageLike:
         return message
 
 
-class UrlFilter(MesssageFilter):
+class UrlMessageFilter(MesssageFilter):
+    """Url filter replaces found URLs to **placeholder**
+
+    Args:
+        placeholder (`str`, optional): 
+            URL placeholder. Defaults to '***'.
+
+        filter_mention (`bool`, optional): 
+            Enable filter text mentions (@channel). Defaults to True.
+
+        blacklist (`List[str]` | `Set[str]`, optional): 
+            URLs blacklist -- remove only these URLs. Defaults to {}.
+
+        whitelist (`List[str]` | `Set[str]`, optional): 
+            URLs whitelist. Defaults to {}.
+    """
 
     def __init__(
-        self: 'UrlFilter',
+        self: 'UrlMessageFilter',
         placeholder: str = '***',
+        filter_mention: bool = True,
         blacklist: Union[List[str], Set[str]] = {},
         whitelist: Union[List[str], Set[str]] = {}
     ) -> None:
         self._placeholder = placeholder
+        self._filter_mention = filter_mention
         self._extract_url = URLExtract()
         self._extract_url.permit_list = blacklist
         if not blacklist:
@@ -36,11 +63,12 @@ class UrlFilter(MesssageFilter):
     def process(self, message: MessageLike) -> MessageLike:
         # replace plain text
         message.message = self._filter_urls(message.message)
-        # replace UrlEntities
+        # remove MessageEntityTextUrl
         if message.entities is not None:
-            for urlEntity in message.entities:
-                if isinstance(urlEntity, types.MessageEntityTextUrl):
-                    urlEntity.url = self._filter_urls(urlEntity.url)
+            message.entities = [
+                e for e in message.entities
+                if not(isinstance(e, types.MessageEntityTextUrl) and self._extract_url.has_urls(e.url))
+            ]
         return message
 
     def _filter_urls(self, text: str) -> str:
@@ -48,19 +76,22 @@ class UrlFilter(MesssageFilter):
         for url in urls:
             text = text.replace(url, self._placeholder)
 
-        text = re.sub(r'@[\d\w]*', self._placeholder, text)
+        if self._filter_mention:
+            text = re.sub(r'@[\d\w]*', self._placeholder, text)
 
         return text
 
 
 class RestrictSavingContentBypassFilter(MesssageFilter):
-    """
-    Maybe here download media, upload to Telegram servers and then change to new uploaded media
+    """Filter that bypasses `saving content restriction`
+
+    Maybe download the media, upload it to the Telegram servers,
+    and then change to the new uploaded media:
 
     ```
     downloaded = await client.download_media(message, file=bytes)
     uploaded = await client.upload_file(downloaded)
-    ...
+    # set uploaded as message file
     ```
     """
 
@@ -68,7 +99,13 @@ class RestrictSavingContentBypassFilter(MesssageFilter):
         raise NotImplementedError
 
 
-class GroupFilter(MesssageFilter):
+class SequenceMessageFilter(MesssageFilter):
+    """Sequence message filter
+
+    Args:
+        *arg (`MessageFilter`):
+            Message filters 
+    """
 
     def __init__(self, *arg: MesssageFilter) -> None:
         self._filters = list(arg)

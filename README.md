@@ -1,7 +1,5 @@
 # Telegram channel mirror via Telegram Client API (telethon)
 
-
-
 ### Functionality
 - No need to be added by the channel's admin
 - Listen to update events (new message, message edited, etc)
@@ -15,7 +13,7 @@
 
 2. Obtain **API_ID** and **API_HASH**
 
-    ![Telegram API Credentials](/images/telegramapp.png)
+    ![Telegram API Credentials](/README.md-images/telegramapp.png)
 
 3. Setup Postgres database or use InMemoryDatabase with `USE_MEMORY_DB=true` parameter in `.env` file
 
@@ -67,7 +65,7 @@
 
 ### Be careful with forwards from channels with [`restricted saving content`](https://telegram.org/blog/protected-content-delete-by-date-and-more). It may lead to an account ban. 
 
-Help is also welcome to work around this limitation. See [sources](/app/telemirror/messagefilters.py#L58).
+Help is also welcome to work around this limitation. See [sources](/telemirror/messagefilters.py#L84).
 
 ## Deploy
 
@@ -92,10 +90,10 @@ or manually:
     ```bash
     heroku git:remote -a {your app name}
     ```
-4. Set environment variables to your heroku app from .env by running .bash script
+4. Set environment variables to your heroku app from .env by running bash script
 
     ```bash
-    ./.bash
+    ./set_heroku_env.bash
     ```
 
 5. Upload on heroku host
@@ -126,5 +124,5 @@ or manually:
 3. Run
 
     ```bash
-    python app/main.py
+    python main.py
     ```
