@@ -1,7 +1,5 @@
 # Telegram channel mirror via Telegram Client API (telethon)
 
-
-
 ### Functionality
 - No need to be added by the channel's admin
 - Listen to update events (new message, message edited, etc)
@@ -15,7 +13,7 @@
 
 2. Obtain **API_ID** and **API_HASH**
 
-    ![Telegram API Credentials](/images/telegramapp.png)
+    ![Telegram API Credentials](/README.md-images/telegramapp.png)
 
 3. Setup Postgres database or use InMemoryDatabase with `USE_MEMORY_DB=true` parameter in `.env` file
 
