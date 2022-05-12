@@ -92,10 +92,10 @@ or manually:
     ```bash
     heroku git:remote -a {your app name}
     ```
-4. Set environment variables to your heroku app from .env by running .bash script
+4. Set environment variables to your heroku app from .env by running bash script
 
     ```bash
-    ./.bash
+    ./set_heroku_env.bash
     ```
 
 5. Upload on heroku host
