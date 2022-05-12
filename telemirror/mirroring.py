@@ -6,8 +6,8 @@ from telethon.sessions import StringSession
 from telethon.sync import TelegramClient
 from telethon.tl import types
 
-from telemirror.messagefilters import EmptyFilter, MesssageFilter
-from telemirror.storage import Database, MirrorMessage
+from .messagefilters import EmptyMessageFilter, MesssageFilter
+from .storage import Database, MirrorMessage
 
 
 class EventHandlers:
@@ -66,7 +66,8 @@ class EventHandlers:
             source_message_ids = []
 
             for incoming_message in incoming_album:
-                incoming_message = self._message_filter.process(incoming_message)
+                incoming_message = self._message_filter.process(
+                    incoming_message)
                 files.append(incoming_message.media)
                 captions.append(incoming_message.message)
                 source_message_ids.append(incoming_message.id)
@@ -86,6 +87,10 @@ class EventHandlers:
 
     async def on_edit_message(self: 'MirrorTelegramClient', event) -> None:
         """MessageEdited event handler"""
+
+        if event.message.edit_hide is True:
+            # skip if edit_hide (reactions and so on...)
+            return
 
         incoming_message: types.Message = event.message
         incoming_chat: int = event.chat_id
@@ -115,9 +120,18 @@ class Mirroring(EventHandlers):
         source_chats: List[int],
         mirror_mapping: Dict[int, List[int]],
         database: Database,
-        message_filter: MesssageFilter = EmptyFilter(),
+        message_filter: MesssageFilter = EmptyMessageFilter(),
         logger: Union[str, logging.Logger] = None
     ) -> None:
+        """Configure channels mirroring
+
+        Args:
+            source_chats (`List[int]`): Source chats ID list
+            mirror_mapping (`Dict[int, List[int]]`): Mapping dictionary: {source: [target1, target2...]}
+            database (`Database`): Message ID storage
+            message_filter (`MesssageFilter`, optional): Message filter. Defaults to `EmptyMessageFilter`.
+            logger (`str` | `logging.Logger`, optional): Logger. Defaults to None.
+        """
         self._database = database
         self._mirror_mapping = mirror_mapping
         self._message_filter = message_filter
@@ -136,9 +150,7 @@ class Mirroring(EventHandlers):
                                events.MessageEdited(chats=source_chats))
 
     def start_mirroring(self: 'MirrorTelegramClient') -> None:
-        """
-        Start chats mirroring
-        """
+        """Start channels mirroring"""
         self.start()
         if self.is_user_authorized():
             me = self.get_me()
@@ -151,11 +163,9 @@ class Mirroring(EventHandlers):
 
 class MirrorTelegramClient(Mirroring, TelegramClient):
 
-    def __init__(self, session_string: str, *args, **kwargs):
+    def __init__(self, session_string: str = None, *args, **kwargs):
         super().__init__(StringSession(session_string), *args, **kwargs)
 
     def print_session_string(self: 'MirrorTelegramClient') -> None:
-        """
-        Prints session string 
-        """
+        """Prints session string"""
         print('Session string: ', self.session.save())

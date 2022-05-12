@@ -65,7 +65,7 @@
 
 ### Be careful with forwards from channels with [`restricted saving content`](https://telegram.org/blog/protected-content-delete-by-date-and-more). It may lead to an account ban. 
 
-Help is also welcome to work around this limitation. See [sources](/app/telemirror/messagefilters.py#L58).
+Help is also welcome to work around this limitation. See [sources](/telemirror/messagefilters.py#L84).
 
 ## Deploy
 
@@ -124,5 +124,5 @@ or manually:
 3. Run
 
     ```bash
-    python app/main.py
+    python main.py
     ```

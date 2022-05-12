@@ -1,1 +1,1 @@
-run: python app/main.py
+run: python main.py
