@@ -1,7 +1,7 @@
 import logging
 
-from config import (API_HASH, API_ID, CHAT_MAPPING, DB_URL, LOG_LEVEL,
-                    REMOVE_URLS)
+from config import (API_HASH, API_ID, CHAT_MAPPING, DB_URL, DISABLE_DELETE,
+                    DISABLE_EDIT, LOG_LEVEL, REMOVE_URLS)
 from config import REMOVE_URLS_LIST as URLS_BLACKLIST
 from config import REMOVE_URLS_WHITELIST as URLS_WHITELIST
 from config import SESSION_STRING, SOURCE_CHATS, USE_MEMORY_DB
@@ -32,6 +32,8 @@ def main():
         mirror_mapping=CHAT_MAPPING,
         database=database,
         message_filter=message_filter,
+        disable_edit=DISABLE_EDIT,
+        disable_delete=DISABLE_DELETE,
         logger=logger
     )
     client.start_mirroring()

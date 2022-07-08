@@ -68,7 +68,7 @@ class Database(Protocol):
         raise NotImplementedError
 
     @abstractmethod
-    def get_messages_to_edit(self: 'Database', original_id: int, original_channel: int) -> List[MirrorMessage]:
+    def get_messages(self: 'Database', original_id: int, original_channel: int) -> List[MirrorMessage]:
         """
         Finds `MirrorMessage` objects with `original_id` and `original_channel` values
 
@@ -78,6 +78,17 @@ class Database(Protocol):
 
         Returns:
             List[MirrorMessage]
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def delete_messages(self: 'Database', original_id: int, original_channel: int) -> None:
+        """
+        Deletes `MirrorMessage` objects with `original_id` and `original_channel` values
+
+        Args:
+            original_id (`int`): Original message ID
+            original_channel (`int`): Source channel ID
         """
         raise NotImplementedError
 
@@ -134,7 +145,7 @@ class InMemoryDatabase(Database):
         self.__stored.setdefault(self.__build_message_hash(
             entity.original_id, entity.original_channel), []).append(entity)
 
-    def get_messages_to_edit(self: 'InMemoryDatabase', original_id: int, original_channel: int) -> List[MirrorMessage]:
+    def get_messages(self: 'InMemoryDatabase', original_id: int, original_channel: int) -> List[MirrorMessage]:
         """
         Finds `MirrorMessage` objects with `original_id` and `original_channel` values
 
@@ -146,6 +157,19 @@ class InMemoryDatabase(Database):
             List[MirrorMessage]
         """
         return self.__stored.get(self.__build_message_hash(original_id, original_channel), None)
+
+    def delete_messages(self: 'InMemoryDatabase', original_id: int, original_channel: int) -> None:
+        """
+        Deletes `MirrorMessage` objects with `original_id` and `original_channel` values
+
+        Args:
+            original_id (`int`): Original message ID
+            original_channel (`int`): Source channel ID
+        """
+        try:
+            del self.__stored[self.__build_message_hash(original_id, original_channel)]
+        except KeyError:
+            pass
 
     def __build_message_hash(self: 'InMemoryDatabase', original_id: int, original_channel: int) -> str:
         """
@@ -212,7 +236,7 @@ class PostgresDatabase(Database):
             else:
                 connection.commit()
 
-    def get_messages_to_edit(self: 'PostgresDatabase', original_id: int, original_channel: int) -> List[MirrorMessage]:
+    def get_messages(self: 'PostgresDatabase', original_id: int, original_channel: int) -> List[MirrorMessage]:
         """
         Finds `MirrorMessage` objects with `original_id` and `original_channel` values
 
@@ -237,6 +261,24 @@ class PostgresDatabase(Database):
             else:
                 rows = cursor.fetchall()
         return [MirrorMessage(*row) for row in rows] if rows else None
+
+    def delete_messages(self: 'PostgresDatabase', original_id: int, original_channel: int) -> None:
+        """
+        Deletes `MirrorMessage` objects with `original_id` and `original_channel` values
+
+        Args:
+            original_id (`int`): Original message ID
+            original_channel (`int`): Source channel ID
+        """
+        with self.__db() as (_, cursor):
+            try:
+                cursor.execute("""
+                                DELETE FROM binding_id
+                                WHERE original_id = %s
+                                AND original_channel = %s
+                                """, (original_id, original_channel,))
+            except Exception as e:
+                self.__logger.error(e, exc_info=True)
 
     @contextmanager
     def __db(self: 'PostgresDatabase'):

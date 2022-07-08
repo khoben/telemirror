@@ -40,6 +40,14 @@
             "description": "White list for removing URLs separated by commas. Will be ignored if REMOVE_URLS_LIST is not empty",
             "required": false
         },
+        "DISABLE_DELETE": {
+            "description": "Disables mirror message deleting. Defaults to False",
+            "required": false
+        },
+        "DISABLE_EDIT": {
+            "description": "Disables mirror message editing. Defaults to False",
+            "required": false
+        },
         "USE_MEMORY_DB": {
             "description": "Using in-memory database like dictionary instead of Postgres DB (true or false). Default is false",
             "required": false

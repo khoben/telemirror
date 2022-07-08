@@ -19,7 +19,7 @@
 
 4. Fill [.env-example](.env-example) with your data and rename it to `.env`
 
-    **SESSION_STRING** can be obtained by running [login.py](login.py) with putted **API_ID** and **API_HASH** before.
+    **SESSION_STRING** can be obtained by running [login.py](login.py) locally (on your PC with installed python 3.9+) with putted **API_ID** and **API_HASH** before.
 
     Channels ID can be fetched by using [@messageinformationsbot](https://t.me/messageinformationsbot) Telegram bot (just send it a message from the desired channel).
     
@@ -46,6 +46,10 @@
     REMOVE_URLS_LIST=google.com,twitter.com
     # Remove URLs whitelist, will be ignored if REMOVE_URLS_LIST is not empty
     REMOVE_URLS_WL=youtube.com,youtu.be,vk.com,twitch.tv,instagram.com
+    # Disable mirror message deleting
+    DISABLE_DELETE=true
+    # Disable mirror message editing
+    DISABLE_EDIT=true
     # Postgres credentials
     DATABASE_URL=postgres://user:pass@host/dbname
     # or

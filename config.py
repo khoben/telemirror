@@ -50,6 +50,9 @@ REMOVE_URLS_WHITELIST: set = config(
 REMOVE_URLS_LIST: set = config(
     "REMOVE_URLS_LIST", cast=Csv(post_process=set), default="")
 
+DISABLE_EDIT: bool = config("DISABLE_EDIT", cast=bool, default=False)
+DISABLE_DELETE: bool = config("DISABLE_DELETE", cast=bool, default=False)
+
 USE_MEMORY_DB: bool = config("USE_MEMORY_DB", default=False, cast=bool)
 
 # postgres credentials
