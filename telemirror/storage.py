@@ -270,7 +270,7 @@ class PostgresDatabase(Database):
             original_id (`int`): Original message ID
             original_channel (`int`): Source channel ID
         """
-        with self.__db() as (_, cursor):
+        with self.__db() as (connection, cursor):
             try:
                 cursor.execute("""
                                 DELETE FROM binding_id
@@ -279,6 +279,9 @@ class PostgresDatabase(Database):
                                 """, (original_id, original_channel,))
             except Exception as e:
                 self.__logger.error(e, exc_info=True)
+                connection.rollback()
+            else:
+                connection.commit()
 
     @contextmanager
     def __db(self: 'PostgresDatabase'):
