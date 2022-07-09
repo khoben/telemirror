@@ -130,3 +130,28 @@ or manually:
     ```bash
     python main.py
     ```
+
+## Keep up-to-date
+
+If you deployed manually, move to step 2.
+
+0. Get project to your PC:
+
+    ```bash
+    heroku git:clone -a {your app name}
+    ```
+1. Init upstream repo
+
+    ```bash
+    git remote add origin https://github.com/khoben/telemirror
+    ```
+2. Get latest changes
+
+    ```bash
+    git pull origin master
+    ```
+3. Push latest changes to heroku
+
+    ```bash
+    git push heroku master -f
+    ```
