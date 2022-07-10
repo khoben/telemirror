@@ -2,7 +2,7 @@
 
 ### Functionality
 - No need to be added by the channel's admin
-- Listen to update events (new message, message edited, etc)
+- Listen to update events (new message, message edited, message deleted and etc)
 - Live forwarding and updating messages
 - Flexible mapping of source and target channels (one-to-one, many-to-one, many-to-many)
 
@@ -18,6 +18,8 @@
 3. Setup Postgres database or use InMemoryDatabase with `USE_MEMORY_DB=true` parameter in `.env` file
 
 4. Fill [.env-example](.env-example) with your data and rename it to `.env`
+
+    [.env-example](.env-example) contains the minimum environment configuration to run with an in-memory database.
 
     **SESSION_STRING** can be obtained by running [login.py](login.py) locally (on your PC with installed python 3.9+) with putted **API_ID** and **API_HASH** before.
 
@@ -40,16 +42,18 @@
     # id5:id6 means send messages from id5 to id6
     # [id1, id2, id3:id4];[id5:id6] semicolon means AND
     CHAT_MAPPING=[-100999999,-100999999,-100999999:-1009999999];
-    # Enable/disable removing URLs on messages
+    # Remove URLs from incoming messages (true or false).       Defaults to false
     REMOVE_URLS=false
-    # List of URLs to be removed
+    # Comma-separated list of URLs to remove (reddit.com,youtube.com)
     REMOVE_URLS_LIST=google.com,twitter.com
-    # Remove URLs whitelist, will be ignored if REMOVE_URLS_LIST is not empty
+    # Comma-separated list of URLs to exclude from removal (google.com,twitter.com). Will be ignored if REMOVE_URLS_LIST is not empty
     REMOVE_URLS_WL=youtube.com,youtu.be,vk.com,twitch.tv,instagram.com
-    # Disable mirror message deleting
-    DISABLE_DELETE=true
-    # Disable mirror message editing
-    DISABLE_EDIT=true
+    # Disable mirror message deleting (true or false). Defaults to false
+    DISABLE_DELETE=false
+    # Disable mirror message editing (true or false). Defaults to false
+    DISABLE_EDIT=false
+    # Use an in-memory database instead of Postgres DB (true or false). Defaults to false
+    USE_MEMORY_DB=false
     # Postgres credentials
     DATABASE_URL=postgres://user:pass@host/dbname
     # or
@@ -57,11 +61,8 @@
     DB_USER=test
     DB_HOST=test
     DB_PASS=test
-    # Using in-memory database like dictionary instead of Postgres DB (true or false).
-    # Default is false
-    USE_MEMORY_DB=false
-    # Logger level
-    LOG_LEVEL=INFO
+    # Logging level (debug, info, warning, error or critical). Defaults to info
+    LOG_LEVEL=info
     ```
 </details> 
 
@@ -131,7 +132,7 @@ or manually:
     python main.py
     ```
 
-## Keep up-to-date
+## Keep up-to-date with Heroku
 
 If you deployed manually, move to step 2.
 
