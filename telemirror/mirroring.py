@@ -180,7 +180,7 @@ class Mirroring(EventHandlers):
         message_filter: MesssageFilter = EmptyMessageFilter(),
         disable_edit: bool = False,
         disable_delete: bool = False,
-        logger: Union[str, logging.Logger] = None
+        logger: Union[str, logging.Logger] = None,
     ) -> None:
         """Configure channels mirroring
 
@@ -213,22 +213,25 @@ class Mirroring(EventHandlers):
 
         if not disable_edit:
             self.add_event_handler(self.on_edit_message,
-                                events.MessageEdited(chats=source_chats))
-        
+                                   events.MessageEdited(chats=source_chats))
+
         if not disable_delete:
             self.add_event_handler(self.on_deleted_message,
-                                events.MessageDeleted(chats=source_chats))
+                                   events.MessageDeleted(chats=source_chats))
 
     async def run(self: 'MirrorTelegramClient') -> None:
         """Start channels mirroring"""
         await self.start()
         if await self.is_user_authorized():
             me = await self.get_me()
-            self._logger.info(f'Logged in as {utils.get_display_name(me)} ({me.phone})')
-            self._logger.info(f'Channel mirroring has started with config:\n{self.print_config()}')
+            self._logger.info(
+                f'Logged in as {utils.get_display_name(me)} ({me.phone})')
+            self._logger.info(
+                f'Channel mirroring has started with config:\n{self.print_config()}')
             await self.run_until_disconnected()
         else:
-            raise RuntimeError("There is no authorization for the user, try restart or get a new session key (run login.py)")
+            raise RuntimeError(
+                "There is no authorization for the user, try restart or get a new session key (run login.py)")
 
     def print_config(self: 'MirrorTelegramClient') -> str:
         """Prints mirror config"""
