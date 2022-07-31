@@ -1,16 +1,16 @@
 import re
 from abc import abstractmethod
-from typing import List, Protocol, Set, Union
+from typing import List, Optional, Protocol, Set, Tuple, Union
 
-from telethon import custom, types
+from telethon import hints, types, utils
 from urlextract import URLExtract
 
-MessageLike = Union[types.Message, custom.Message]
+from .hints import MessageLike
 
 
 class MesssageFilter(Protocol):
     @abstractmethod
-    def process(self, message: MessageLike) -> MessageLike:
+    async def process(self, message: MessageLike) -> MessageLike:
         """Apply filter to **message**
 
         Args:
@@ -25,7 +25,7 @@ class MesssageFilter(Protocol):
 class EmptyMessageFilter(MesssageFilter):
     """Do nothing with message"""
 
-    def process(self, message: MessageLike) -> MessageLike:
+    async def process(self, message: MessageLike) -> MessageLike:
         return message
 
 
@@ -60,7 +60,7 @@ class UrlMessageFilter(MesssageFilter):
         if not blacklist:
             self._extract_url.ignore_list = whitelist
 
-    def process(self, message: MessageLike) -> MessageLike:
+    async def process(self, message: MessageLike) -> MessageLike:
         # replace plain text
         message.message = self._filter_urls(message.message)
         # remove MessageEntityTextUrl
@@ -95,7 +95,7 @@ class RestrictSavingContentBypassFilter(MesssageFilter):
     ```
     """
 
-    def process(self, message: MessageLike) -> MessageLike:
+    async def process(self, message: MessageLike) -> MessageLike:
         raise NotImplementedError
 
 
@@ -110,7 +110,7 @@ class SequenceMessageFilter(MesssageFilter):
     def __init__(self, *arg: MesssageFilter) -> None:
         self._filters = list(arg)
 
-    def process(self, message: MessageLike) -> MessageLike:
+    async def process(self, message: MessageLike) -> MessageLike:
         for f in self._filters:
-            message = f.process(message)
+            message = await f.process(message)
         return message
