@@ -1,13 +1,16 @@
 import collections
-import logging
 from abc import abstractmethod
-from contextlib import contextmanager
-from typing import List, Protocol
+from contextlib import asynccontextmanager
+from dataclasses import dataclass
+from os import curdir
+from typing import List, Optional, Protocol
+import psycopg
 
-from psycopg2 import pool
-from psycopg2.extensions import AsIs, ISQLQuote, adapt
+from psycopg.rows import class_row
+from psycopg_pool import AsyncConnectionPool
 
 
+@dataclass
 class MirrorMessage:
     """
     Mirror message class contains id message mappings:
@@ -21,32 +24,10 @@ class MirrorMessage:
         mirror_channel (`int`): Mirror channel ID
     """
 
-    def __init__(self, original_id: int, original_channel: int,
-                 mirror_id: int, mirror_channel: int):
-        self.original_id = original_id
-        self.mirror_id = mirror_id
-        self.original_channel = original_channel
-        self.mirror_channel = mirror_channel
-
-    def __str__(self):
-        return f'{self.__class__}: {self.__dict__}'
-
-    def __repr__(self):
-        return self.__str__()
-
-    def __conform__(self, protocol):
-        if protocol is ISQLQuote:
-            return self.__getquoted()
-        return None
-
-    def __getquoted(self):
-        _original_id = adapt(self.original_id).getquoted().decode('utf-8')
-        _original_channel = adapt(
-            self.original_channel).getquoted().decode('utf-8')
-        _mirror_id = adapt(self.mirror_id).getquoted().decode('utf-8')
-        _mirror_channel = adapt(
-            self.mirror_channel).getquoted().decode('utf-8')
-        return AsIs(f'{_original_id}, {_original_channel}, {_mirror_id}, {_mirror_channel}')
+    original_id: int
+    original_channel: int
+    mirror_id: int
+    mirror_channel: int
 
 
 class Database(Protocol):
@@ -59,7 +40,12 @@ class Database(Protocol):
     """
 
     @abstractmethod
-    def insert(self: 'Database', entity: MirrorMessage) -> None:
+    async def async_init(self: 'Database') -> 'Database':
+        """Async initializer"""
+        raise NotImplementedError
+
+    @abstractmethod
+    async def insert(self: 'Database', entity: MirrorMessage) -> None:
         """Inserts `MirrorMessage` object into database
 
         Args:
@@ -68,7 +54,7 @@ class Database(Protocol):
         raise NotImplementedError
 
     @abstractmethod
-    def get_messages(self: 'Database', original_id: int, original_channel: int) -> List[MirrorMessage]:
+    async def get_messages(self: 'Database', original_id: int, original_channel: int) -> Optional[List[MirrorMessage]]:
         """
         Finds `MirrorMessage` objects with `original_id` and `original_channel` values
 
@@ -77,12 +63,12 @@ class Database(Protocol):
             original_channel (`int`): Source channel ID
 
         Returns:
-            List[MirrorMessage]
+            Optional[List[MirrorMessage]]
         """
         raise NotImplementedError
 
     @abstractmethod
-    def delete_messages(self: 'Database', original_id: int, original_channel: int) -> None:
+    async def delete_messages(self: 'Database', original_id: int, original_channel: int) -> None:
         """
         Deletes `MirrorMessage` objects with `original_id` and `original_channel` values
 
@@ -132,11 +118,14 @@ class InMemoryDatabase(Database):
 
     MAX_CAPACITY = 100
 
-    def __init__(self: 'InMemoryDatabase', max_capacity: int = MAX_CAPACITY):
+    def __init__(self: 'InMemoryDatabase', max_capacity: int = MAX_CAPACITY) -> 'InMemoryDatabase':
         self.__stored = self.LimitedDict[str, List[MirrorMessage]](
             capacity=max_capacity)
 
-    def insert(self: 'InMemoryDatabase', entity: MirrorMessage) -> None:
+    async def async_init(self: 'InMemoryDatabase') -> 'InMemoryDatabase':
+        return self
+
+    async def insert(self: 'InMemoryDatabase', entity: MirrorMessage) -> None:
         """Inserts `MirrorMessage` object into database
 
         Args:
@@ -145,7 +134,7 @@ class InMemoryDatabase(Database):
         self.__stored.setdefault(self.__build_message_hash(
             entity.original_id, entity.original_channel), []).append(entity)
 
-    def get_messages(self: 'InMemoryDatabase', original_id: int, original_channel: int) -> List[MirrorMessage]:
+    async def get_messages(self: 'InMemoryDatabase', original_id: int, original_channel: int) -> Optional[List[MirrorMessage]]:
         """
         Finds `MirrorMessage` objects with `original_id` and `original_channel` values
 
@@ -154,11 +143,11 @@ class InMemoryDatabase(Database):
             original_channel (`int`): Source channel ID
 
         Returns:
-            List[MirrorMessage]
+            Optional[List[MirrorMessage]]
         """
         return self.__stored.get(self.__build_message_hash(original_id, original_channel), None)
 
-    def delete_messages(self: 'InMemoryDatabase', original_id: int, original_channel: int) -> None:
+    async def delete_messages(self: 'InMemoryDatabase', original_id: int, original_channel: int) -> None:
         """
         Deletes `MirrorMessage` objects with `original_id` and `original_channel` values
 
@@ -167,7 +156,8 @@ class InMemoryDatabase(Database):
             original_channel (`int`): Source channel ID
         """
         try:
-            del self.__stored[self.__build_message_hash(original_id, original_channel)]
+            del self.__stored[self.__build_message_hash(
+                original_id, original_channel)]
         except KeyError:
             pass
 
@@ -212,31 +202,35 @@ class PostgresDatabase(Database):
     MIN_CONN = 2
     MAX_CONN = 10
 
-    def __init__(self, connection_string: str, min_conn: int = MIN_CONN, max_conn: int = MAX_CONN, logger: logging.Logger = logging.getLogger(__name__)):
-        self.__logger = logger
-        self.connection_pool = pool.SimpleConnectionPool(
-            min_conn, max_conn, connection_string)
-        self.__init_binding_table()
+    def __init__(
+        self,
+        connection_string: str,
+        min_conn: int = MIN_CONN,
+        max_conn: int = MAX_CONN
+    ) -> 'PostgresDatabase':
+        self.__conn_info = connection_string
+        self.__min_conn = min_conn
+        self.__max_conn = max_conn
 
-    def insert(self: 'PostgresDatabase', entity: MirrorMessage) -> None:
+    async def async_init(self: 'PostgresDatabase') -> 'PostgresDatabase':
+        self.connection_pool = AsyncConnectionPool(
+            conninfo=self.__conn_info, min_size=self.__min_conn, max_size=self.__max_conn)
+        await self.__create_binding_if_not_exists()
+        return self
+
+    async def insert(self: 'PostgresDatabase', entity: MirrorMessage) -> None:
         """Inserts `MirrorMessage` object into database
 
         Args:
             entity (`MirrorMessage`): `MirrorMessage` object
         """
-        with self.__db() as (connection, cursor):
-            try:
-                cursor.execute("""
+        async with self.__pg_cursor() as cursor:
+            await cursor.execute("""
                                 INSERT INTO binding_id (original_id, original_channel, mirror_id, mirror_channel)
-                                VALUES (%s)
-                                """, (entity,))
-            except Exception as e:
-                self.__logger.error(e, exc_info=True)
-                connection.rollback()
-            else:
-                connection.commit()
+                                VALUES (%s, %s, %s, %s)
+                                """, (entity.original_id, entity.original_channel, entity.mirror_id, entity.mirror_channel,))
 
-    def get_messages(self: 'PostgresDatabase', original_id: int, original_channel: int) -> List[MirrorMessage]:
+    async def get_messages(self: 'PostgresDatabase', original_id: int, original_channel: int) -> Optional[List[MirrorMessage]]:
         """
         Finds `MirrorMessage` objects with `original_id` and `original_channel` values
 
@@ -245,24 +239,21 @@ class PostgresDatabase(Database):
             original_channel (`int`): Source channel ID
 
         Returns:
-            List[MirrorMessage]
+            Optional[List[MirrorMessage]]
         """
-        rows = None
-        with self.__db() as (_, cursor):
-            try:
-                cursor.execute("""
+        rows: Optional[List[MirrorMessage]] = None
+        async with self.__pg_cursor() as cursor:
+            cursor.row_factory = class_row(MirrorMessage)
+            await cursor.execute("""
                                 SELECT original_id, original_channel, mirror_id, mirror_channel
                                 FROM binding_id
                                 WHERE original_id = %s
                                 AND original_channel = %s
                                 """, (original_id, original_channel,))
-            except Exception as e:
-                self.__logger.error(e, exc_info=True)
-            else:
-                rows = cursor.fetchall()
-        return [MirrorMessage(*row) for row in rows] if rows else None
+            rows = await cursor.fetchall()
+        return rows
 
-    def delete_messages(self: 'PostgresDatabase', original_id: int, original_channel: int) -> None:
+    async def delete_messages(self: 'PostgresDatabase', original_id: int, original_channel: int) -> None:
         """
         Deletes `MirrorMessage` objects with `original_id` and `original_channel` values
 
@@ -270,54 +261,34 @@ class PostgresDatabase(Database):
             original_id (`int`): Original message ID
             original_channel (`int`): Source channel ID
         """
-        with self.__db() as (connection, cursor):
-            try:
-                cursor.execute("""
+        async with self.__pg_cursor() as cursor:
+            await cursor.execute("""
                                 DELETE FROM binding_id
                                 WHERE original_id = %s
                                 AND original_channel = %s
                                 """, (original_id, original_channel,))
-            except Exception as e:
-                self.__logger.error(e, exc_info=True)
-                connection.rollback()
-            else:
-                connection.commit()
 
-    @contextmanager
-    def __db(self: 'PostgresDatabase'):
+    async def __create_binding_if_not_exists(self: 'PostgresDatabase'):
+        """Create binding table if not exists"""
+
+        async with self.__pg_cursor() as cursor:
+            await cursor.execute("""
+                                CREATE TABLE IF NOT EXISTS binding_id(   
+                                    id serial primary key not null,
+                                    original_id bigint not null,
+                                    original_channel bigint not null,
+                                    mirror_id bigint not null,
+                                    mirror_channel bigint not null)
+                                """)
+
+    @asynccontextmanager
+    async def __pg_cursor(self: 'PostgresDatabase'):
         """
-        Gets connection from pool and creates cursor within current context
+        Gets connection from pool and yields cursor within current context
 
         Yields:
-            (`psycopg2.extensions.connection`, `psycopg2.extensions.cursor`): Connection and cursor
+            (`psycopg.AsyncCursor`): Cursor
         """
-        con = self.connection_pool.getconn()
-        cur = con.cursor()
-        try:
-            yield con, cur
-        finally:
-            cur.close()
-            self.connection_pool.putconn(con)
-
-    def __init_binding_table(self: 'PostgresDatabase'):
-        """
-        Init binding table
-        """
-        with self.__db() as (connection, cursor):
-            try:
-                cursor.execute(
-                    """
-                    CREATE TABLE IF NOT EXISTS binding_id
-                    (   id serial primary key not null,
-                        original_id bigint not null,
-                        original_channel bigint not null,
-                        mirror_id bigint not null,
-                        mirror_channel bigint not null
-                    )
-                    """
-                )
-            except Exception as e:
-                self.__logger.error(e, exc_info=True)
-                connection.rollback()
-            else:
-                connection.commit()
+        async with self.connection_pool.connection() as con:
+            async with con.cursor() as cur:
+                yield cur
