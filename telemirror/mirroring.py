@@ -6,13 +6,14 @@ from telethon.sessions import StringSession
 from telethon.sync import TelegramClient
 from telethon.tl import types
 
+from .hints import EventLike
 from .messagefilters import EmptyMessageFilter, MesssageFilter
 from .storage import Database, MirrorMessage
 
 
 class EventHandlers:
 
-    async def on_new_message(self: 'MirrorTelegramClient', event) -> None:
+    async def on_new_message(self: 'MirrorTelegramClient', event: events.NewMessage.Event) -> None:
         """NewMessage event handler"""
 
         if hasattr(event, 'grouped_id') and event.grouped_id is not None:
@@ -47,7 +48,7 @@ class EventHandlers:
         except Exception as e:
             self._logger.error(e, exc_info=True)
 
-    async def on_album(self: 'MirrorTelegramClient', event) -> None:
+    async def on_album(self: 'MirrorTelegramClient', event: events.Album.Event) -> None:
         """Album event handler"""
 
         incoming_album: List[types.Message] = event.messages
@@ -84,7 +85,7 @@ class EventHandlers:
         except Exception as e:
             self._logger.error(e, exc_info=True)
 
-    async def on_edit_message(self: 'MirrorTelegramClient', event) -> None:
+    async def on_edit_message(self: 'MirrorTelegramClient', event: events.MessageEdited.Event) -> None:
         """MessageEdited event handler"""
 
         if event.message.edit_hide is True:
@@ -111,7 +112,7 @@ class EventHandlers:
         except Exception as e:
             self._logger.error(e, exc_info=True)
 
-    async def on_deleted_message(self: 'MirrorTelegramClient', event) -> None:
+    async def on_deleted_message(self: 'MirrorTelegramClient', event: events.MessageDeleted.Event) -> None:
         """MessageDeleted event handler"""
 
         deleted_ids: List[int] = event.deleted_ids
