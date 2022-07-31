@@ -114,3 +114,39 @@ class CompositeMessageFilter(MesssageFilter):
         for f in self._filters:
             message = await f.process(message)
         return message
+
+
+class ForwardFormatFilter(MesssageFilter):
+    """Filter that adds a forwarding formatting (markdown supported): 
+
+    Example:
+    ```
+    {message_text}
+
+    Forwarded from [{channel_name}]({message_link})
+    ```
+
+    Args:
+        format (str): Forward header format, 
+        where `{channel_name}`, `{message_link}` and `{message_text}`
+        are placeholders to actual incoming message values.
+    """
+
+    DEFAULT_FORMAT: str = "{message_text}\n\nForwarded from [{channel_name}]({message_link})"
+
+    def __init__(self, format: str = DEFAULT_FORMAT) -> None:
+        self._format = format
+
+    async def process(self, message: MessageLike) -> MessageLike:
+
+        async def forward_header_data(message: MessageLike) -> Tuple[Optional[str], Optional[str]]:
+            chat: hints.Entity = await message.get_chat()
+            if chat and not isinstance(message.peer_id, types.PeerUser):
+                link: str = f'https://t.me/c/{chat.id}/{message.id}'
+                return utils.get_display_name(chat), link
+            return None, None
+
+        channel_name, message_link = await forward_header_data(message)
+        if channel_name and message_link:
+            message.message, message.entities = await message.client._parse_message_text(f'{self._format.format(channel_name=channel_name, message_link=message_link, message_text=message.message)}', ())
+        return message
