@@ -251,7 +251,3 @@ class MirrorTelegramClient(TelegramClient, Mirroring):
         TelegramClient.__init__(self, StringSession(
             session_string), api_id, api_hash)
         Mirroring.__init__(self, *args, **kwargs)
-
-    def print_session_string(self: 'MirrorTelegramClient') -> None:
-        """Prints session string"""
-        print('Session string: ', self.session.save())
