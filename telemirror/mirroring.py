@@ -21,14 +21,14 @@ class EventHandlers:
 
         incoming_message: types.Message = event.message
         incoming_chat: int = event.chat_id
+        incoming_message_link: str = self.event_message_link(event)
 
-        self._logger.info(
-            f'New message from {incoming_chat}:\n{incoming_message}')
+        self._logger.info(f'New message: {incoming_message_link}')
 
         try:
             outgoing_chats = self._mirror_mapping.get(incoming_chat)
             if outgoing_chats is None or len(outgoing_chats) < 1:
-                self._logger.warning(f'No target chats for {incoming_chat}.')
+                self._logger.warning(f'No target chats for {incoming_chat}')
                 return
 
             incoming_message = await self._message_filter.process(incoming_message)
@@ -52,13 +52,14 @@ class EventHandlers:
 
         incoming_album: List[types.Message] = event.messages
         incoming_chat: int = event.chat_id
+        incoming_album_link: str = self.event_message_link(event)
 
-        self._logger.info(f'New album from {incoming_chat}')
+        self._logger.info(f'New album: {incoming_album_link}')
 
         try:
             outgoing_chats = self._mirror_mapping.get(incoming_chat)
             if outgoing_chats is None or len(outgoing_chats) < 1:
-                self._logger.warning(f'No target chats for {incoming_chat}.')
+                self._logger.warning(f'No target chats for {incoming_chat}')
                 return
 
             files = []
@@ -93,16 +94,16 @@ class EventHandlers:
 
         incoming_message: types.Message = event.message
         incoming_chat: int = event.chat_id
+        incoming_message_link: str = self.event_message_link(event)
 
-        self._logger.info(
-            f'Edit message from {incoming_chat}#{incoming_message.id}')
+        self._logger.info(f'Edit message: {incoming_message_link}')
 
         try:
             outgoing_messages = await self._database.get_messages(
                 incoming_message.id, incoming_chat)
             if outgoing_messages is None or len(outgoing_messages) < 1:
                 self._logger.warning(
-                    f'No target messages for {incoming_chat}.')
+                    f'No target messages to edit for {incoming_message_link}')
                 return
 
             incoming_message = await self._message_filter.process(incoming_message)
@@ -126,7 +127,7 @@ class EventHandlers:
                     deleted_id, incoming_chat)
                 if deleting_messages is None or len(deleting_messages) < 1:
                     self._logger.warning(
-                        f'No target messages for {incoming_chat} and message#{deleted_id}.')
+                        f'No target messages for {incoming_chat} and message#{deleted_id}')
                     continue
 
                 await self._database.delete_messages(deleted_id, incoming_chat)
@@ -139,6 +140,18 @@ class EventHandlers:
 
         except Exception as e:
             self._logger.error(e, exc_info=True)
+
+    def event_message_link(self: 'EventHandlers', event: EventLike) -> str:
+        """Get link to event message"""
+
+        if isinstance(event, (events.NewMessage.Event, events.MessageEdited.Event)):
+            incoming_message: int = event.message.id
+        elif isinstance(event, events.Album.Event):
+            incoming_message: int = event.messages[0].id
+        elif isinstance(event, events.MessageDeleted.Event):
+            incoming_message: int = event.deleted_id
+        incoming_chat: int = event.chat_id
+        return f'https://t.me/c/{utils.resolve_id(incoming_chat)[0]}/{incoming_message}'
 
 
 class Mirroring(EventHandlers):
@@ -164,9 +177,12 @@ class Mirroring(EventHandlers):
             disable_delete (`bool`, optional): Disable mirror message deleting. Defaults to `False`.
             logger (`str` | `logging.Logger`, optional): Logger. Defaults to None.
         """
+        self._source_chats = source_chats
         self._database = database
         self._mirror_mapping = mirror_mapping
         self._message_filter = message_filter
+        self._disable_edit = disable_edit
+        self._disable_delete = disable_delete
 
         if isinstance(logger, str):
             logger = logging.getLogger(logger)
@@ -193,16 +209,24 @@ class Mirroring(EventHandlers):
         if await self.is_user_authorized():
             me = await self.get_me()
             self._logger.info(f'Logged in as {utils.get_display_name(me)} ({me.phone})')
-            self._logger.info('Channels mirroring was started...')
+            self._logger.info(f'Channel mirroring has started with config:\n{self.print_config()}')
             await self.run_until_disconnected()
         else:
             raise RuntimeError("There is no authorization for the user, try restart or get a new session key (run login.py)")
 
+    def print_config(self: 'MirrorTelegramClient') -> str:
+        """Prints mirror config"""
 
-class MirrorTelegramClient(Mirroring, TelegramClient):
+        return f"""
+        Mirror mapping: {self._mirror_mapping}
+        Message deleting: { "Disabled" if self._disable_delete else "Enabled" }
+        Message editing: { "Disabled" if self._disable_edit else "Enabled" }
+        Installed message filter: { self._message_filter }
+        Using { self._database } database
+        """
 
-    def __init__(self, session_string: str = None, *args, **kwargs):
-        super().__init__(StringSession(session_string), *args, **kwargs)
+
+class MirrorTelegramClient(TelegramClient, Mirroring):
 
     def print_session_string(self: 'MirrorTelegramClient') -> None:
         """Prints session string"""
