@@ -1,9 +1,8 @@
 import logging
 from typing import Dict, List, Union
 
-from telethon import events
+from telethon import TelegramClient, events, utils
 from telethon.sessions import StringSession
-from telethon.sync import TelegramClient
 from telethon.tl import types
 
 from .hints import EventLike
@@ -188,16 +187,16 @@ class Mirroring(EventHandlers):
             self.add_event_handler(self.on_deleted_message,
                                 events.MessageDeleted(chats=source_chats))
 
-    def start_mirroring(self: 'MirrorTelegramClient') -> None:
+    async def run(self: 'MirrorTelegramClient') -> None:
         """Start channels mirroring"""
-        self.start()
-        if self.is_user_authorized():
-            me = self.get_me()
-            self._logger.info(f'Authorized as {me.username} ({me.phone})')
+        await self.start()
+        if await self.is_user_authorized():
+            me = await self.get_me()
+            self._logger.info(f'Logged in as {utils.get_display_name(me)} ({me.phone})')
             self._logger.info('Channels mirroring was started...')
-            self.run_until_disconnected()
+            await self.run_until_disconnected()
         else:
-            self._logger.error('Cannot be authorized. Try to restart')
+            raise RuntimeError("There is no authorization for the user, try restart or get a new session key (run login.py)")
 
 
 class MirrorTelegramClient(Mirroring, TelegramClient):
