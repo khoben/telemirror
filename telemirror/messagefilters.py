@@ -99,8 +99,8 @@ class RestrictSavingContentBypassFilter(MesssageFilter):
         raise NotImplementedError
 
 
-class SequenceMessageFilter(MesssageFilter):
-    """Sequence message filter
+class CompositeMessageFilter(MesssageFilter):
+    """Composite message filter that sequentially applies the filters
 
     Args:
         *arg (`MessageFilter`):
