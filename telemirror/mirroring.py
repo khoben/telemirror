@@ -156,7 +156,7 @@ class EventHandlers:
 
 class Mirroring(EventHandlers):
 
-    def configure_mirroring(
+    def __init__(
         self: 'MirrorTelegramClient',
         source_chats: List[int],
         mirror_mapping: Dict[int, List[int]],
@@ -227,6 +227,11 @@ class Mirroring(EventHandlers):
 
 
 class MirrorTelegramClient(TelegramClient, Mirroring):
+
+    def __init__(self, session_string: str = None, api_id: str = None, api_hash: str = None, *args, **kwargs):
+        TelegramClient.__init__(self, StringSession(
+            session_string), api_id, api_hash)
+        Mirroring.__init__(self, *args, **kwargs)
 
     def print_session_string(self: 'MirrorTelegramClient') -> None:
         """Prints session string"""
