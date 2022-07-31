@@ -34,16 +34,24 @@ class EventHandlers:
             incoming_message = await self._message_filter.process(incoming_message)
             for outgoing_chat in outgoing_chats:
                 if isinstance(incoming_message.media, types.MessageMediaPoll):
-                    outgoing_message = await self.send_message(outgoing_chat,
-                                                               file=types.InputMediaPoll(poll=incoming_message.media.poll))
+                    outgoing_message = await self.send_message(
+                        entity=outgoing_chat,
+                        file=types.InputMediaPoll(
+                            poll=incoming_message.media.poll
+                        )
+                    )
                 else:
-                    outgoing_message = await self.send_message(outgoing_chat, event.message)
+                    outgoing_message = await self.send_message(
+                        entity=outgoing_chat,
+                        message=incoming_message,
+                        formatting_entities=incoming_message.entities
+                    )
 
                 if outgoing_message is not None:
                     await self._database.insert(MirrorMessage(original_id=incoming_message.id,
-                                                        original_channel=incoming_chat,
-                                                        mirror_id=outgoing_message.id,
-                                                        mirror_channel=outgoing_chat))
+                                                              original_channel=incoming_chat,
+                                                              mirror_id=outgoing_message.id,
+                                                              mirror_channel=outgoing_chat))
         except Exception as e:
             self._logger.error(e, exc_info=True)
 
@@ -73,15 +81,14 @@ class EventHandlers:
                 source_message_ids.append(incoming_message.id)
 
             for outgoing_chat in outgoing_chats:
-                outgoing_messages = await self.send_file(
-                    outgoing_chat, caption=captions, file=files)
+                outgoing_messages = await self.send_file(entity=outgoing_chat, caption=captions, file=files)
 
                 if outgoing_messages is not None and len(outgoing_messages) > 1:
                     for i, outgoing_message in enumerate(outgoing_messages):
                         await self._database.insert(MirrorMessage(original_id=source_message_ids[i],
-                                                            original_channel=incoming_chat,
-                                                            mirror_id=outgoing_message.id,
-                                                            mirror_channel=outgoing_chat))
+                                                                  original_channel=incoming_chat,
+                                                                  mirror_id=outgoing_message.id,
+                                                                  mirror_channel=outgoing_chat))
         except Exception as e:
             self._logger.error(e, exc_info=True)
 
@@ -108,7 +115,13 @@ class EventHandlers:
 
             incoming_message = await self._message_filter.process(incoming_message)
             for outgoing_message in outgoing_messages:
-                await self.edit_message(outgoing_message.mirror_channel, outgoing_message.mirror_id, incoming_message.message)
+                await self.edit_message(
+                    entity=outgoing_message.mirror_channel,
+                    message=outgoing_message.mirror_id,
+                    text=incoming_message.message,
+                    formatting_entities=incoming_message.entities,
+                    file=incoming_message.media
+                )
         except Exception as e:
             self._logger.error(e, exc_info=True)
 
@@ -134,7 +147,10 @@ class EventHandlers:
 
                 for deleting_message in deleting_messages:
                     try:
-                        await self.delete_messages(deleting_message.mirror_channel, deleting_message.mirror_id)
+                        await self.delete_messages(
+                            entity=deleting_message.mirror_channel,
+                            message_ids=deleting_message.mirror_id
+                        )
                     except Exception as e:
                         self._logger.error(e, exc_info=True)
 
