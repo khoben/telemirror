@@ -31,7 +31,7 @@ class EventHandlers:
                 self._logger.warning(f'No target chats for {incoming_chat}.')
                 return
 
-            incoming_message = self._message_filter.process(incoming_message)
+            incoming_message = await self._message_filter.process(incoming_message)
             for outgoing_chat in outgoing_chats:
                 if isinstance(incoming_message.media, types.MessageMediaPoll):
                     outgoing_message = await self.send_message(outgoing_chat,
@@ -40,7 +40,7 @@ class EventHandlers:
                     outgoing_message = await self.send_message(outgoing_chat, event.message)
 
                 if outgoing_message is not None:
-                    self._database.insert(MirrorMessage(original_id=incoming_message.id,
+                    await self._database.insert(MirrorMessage(original_id=incoming_message.id,
                                                         original_channel=incoming_chat,
                                                         mirror_id=outgoing_message.id,
                                                         mirror_channel=outgoing_chat))
@@ -66,8 +66,7 @@ class EventHandlers:
             source_message_ids = []
 
             for incoming_message in incoming_album:
-                incoming_message = self._message_filter.process(
-                    incoming_message)
+                incoming_message = await self._message_filter.process(incoming_message)
                 files.append(incoming_message.media)
                 captions.append(incoming_message.message)
                 source_message_ids.append(incoming_message.id)
@@ -78,7 +77,7 @@ class EventHandlers:
 
                 if outgoing_messages is not None and len(outgoing_messages) > 1:
                     for i, outgoing_message in enumerate(outgoing_messages):
-                        self._database.insert(MirrorMessage(original_id=source_message_ids[i],
+                        await self._database.insert(MirrorMessage(original_id=source_message_ids[i],
                                                             original_channel=incoming_chat,
                                                             mirror_id=outgoing_message.id,
                                                             mirror_channel=outgoing_chat))
@@ -99,14 +98,14 @@ class EventHandlers:
             f'Edit message from {incoming_chat}#{incoming_message.id}')
 
         try:
-            outgoing_messages = self._database.get_messages(
+            outgoing_messages = await self._database.get_messages(
                 incoming_message.id, incoming_chat)
             if outgoing_messages is None or len(outgoing_messages) < 1:
                 self._logger.warning(
                     f'No target messages for {incoming_chat}.')
                 return
 
-            incoming_message = self._message_filter.process(incoming_message)
+            incoming_message = await self._message_filter.process(incoming_message)
             for outgoing_message in outgoing_messages:
                 await self.edit_message(outgoing_message.mirror_channel, outgoing_message.mirror_id, incoming_message.message)
         except Exception as e:
@@ -123,13 +122,14 @@ class EventHandlers:
 
         try:
             for deleted_id in deleted_ids:
-                deleting_messages = self._database.get_messages(deleted_id, incoming_chat)
+                deleting_messages = await self._database.get_messages(
+                    deleted_id, incoming_chat)
                 if deleting_messages is None or len(deleting_messages) < 1:
                     self._logger.warning(
                         f'No target messages for {incoming_chat} and message#{deleted_id}.')
                     continue
 
-                self._database.delete_messages(deleted_id, incoming_chat)
+                await self._database.delete_messages(deleted_id, incoming_chat)
 
                 for deleting_message in deleting_messages:
                     try:
