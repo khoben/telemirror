@@ -2,8 +2,8 @@ import re
 from abc import abstractmethod
 from typing import List, Optional, Protocol, Set, Union
 
-from telethon import hints, types, utils
-from urlextract import URLExtract
+from telethon import types, utils
+from urlextractor import URLExtrator
 
 from .hints import MessageLike
 
@@ -46,23 +46,22 @@ class UrlMessageFilter(MesssageFilter):
             URLs whitelist. Defaults to {}.
     """
 
+    _RE_MENTION = re.compile(r'@[\d\w]*')
+
     def __init__(
         self: 'UrlMessageFilter',
         placeholder: str = '***',
         filter_mention: bool = True,
-        blacklist: Union[List[str], Set[str]] = {},
-        whitelist: Union[List[str], Set[str]] = {}
+        blacklist: Union[List[str], Set[str]] = set(),
+        whitelist: Union[List[str], Set[str]] = set()
     ) -> None:
         self._placeholder = placeholder
         self._filter_mention = filter_mention
-        self._extract_url = URLExtract()
-        self._extract_url.permit_list = blacklist
-        if not blacklist:
-            self._extract_url.ignore_list = whitelist
+        self._extract_url = URLExtrator(blacklist, whitelist)
 
     async def process(self, message: MessageLike) -> MessageLike:
         # replace plain text
-        message.message = self._filter_urls(message.message)
+        message.message = self._filter_text(message.message)
         # remove MessageEntityTextUrl
         if message.entities is not None:
             message.entities = [
@@ -71,13 +70,13 @@ class UrlMessageFilter(MesssageFilter):
             ]
         return message
 
-    def _filter_urls(self, text: str) -> str:
-        urls = self._extract_url.find_urls(text, only_unique=True)
+    def _filter_text(self, text: str) -> str:
+        urls = self._extract_url.find(text)
         for url in urls:
-            text = text.replace(url, self._placeholder)
+            text = text.replace(url.text, self._placeholder)
 
         if self._filter_mention:
-            text = re.sub(r'@[\d\w]*', self._placeholder, text)
+            text = self._RE_MENTION.sub(self._placeholder, text)
 
         return text
 
