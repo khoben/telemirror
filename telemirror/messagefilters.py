@@ -1,6 +1,6 @@
 import re
 from abc import abstractmethod
-from typing import List, Optional, Protocol, Set, Tuple, Union
+from typing import List, Optional, Protocol, Set, Union
 
 from telethon import hints, types, utils
 from urlextract import URLExtract
@@ -138,15 +138,16 @@ class ForwardFormatFilter(MesssageFilter):
         self._format = format
 
     async def process(self, message: MessageLike) -> MessageLike:
+        message_link: Optional[str] = message.link
+        channel_name: str = utils.get_display_name(message.chat)
 
-        async def forward_header_data(message: MessageLike) -> Tuple[Optional[str], Optional[str]]:
-            chat: hints.Entity = await message.get_chat()
-            if chat and not isinstance(message.peer_id, types.PeerUser):
-                link: str = f'https://t.me/c/{chat.id}/{message.id}'
-                return utils.get_display_name(chat), link
-            return None, None
-
-        channel_name, message_link = await forward_header_data(message)
         if channel_name and message_link:
-            message.message, message.entities = await message.client._parse_message_text(f'{self._format.format(channel_name=channel_name, message_link=message_link, message_text=message.message)}', ())
+            message.message, message.entities = \
+                await message.client._parse_message_text(
+                    self._format.format(
+                        channel_name=channel_name,
+                        message_link=message_link,
+                        message_text=message.message
+                    ), ()
+                )
         return message
