@@ -237,7 +237,7 @@ class Mirroring(EventHandlers):
         """Prints mirror config"""
 
         return f"""
-        Mirror mapping: {self._mirror_mapping}
+        Mirror mapping: { self._mirror_mapping }
         Message deleting: { "Disabled" if self._disable_delete else "Enabled" }
         Message editing: { "Disabled" if self._disable_edit else "Enabled" }
         Installed message filter: { self._message_filter }
