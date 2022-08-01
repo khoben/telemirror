@@ -161,13 +161,13 @@ class EventHandlers:
         """Get link to event message"""
 
         if isinstance(event, (events.NewMessage.Event, events.MessageEdited.Event)):
-            incoming_message: int = event.message.id
+            incoming_message_id: int = event.message.id
         elif isinstance(event, events.Album.Event):
-            incoming_message: int = event.messages[0].id
+            incoming_message_id: int = event.messages[0].id
         elif isinstance(event, events.MessageDeleted.Event):
-            incoming_message: int = event.deleted_id
-        incoming_chat: int = event.chat_id
-        return f'https://t.me/c/{utils.resolve_id(incoming_chat)[0]}/{incoming_message}'
+            incoming_message_id: int = event.deleted_id
+
+        return f'https://t.me/c/{utils.resolve_id(event.chat_id)[0]}/{incoming_message_id}'
 
 
 class Mirroring(EventHandlers):
