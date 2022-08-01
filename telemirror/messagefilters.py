@@ -71,9 +71,9 @@ class UrlMessageFilter(MesssageFilter):
         return message
 
     def _filter_text(self, text: str) -> str:
-        urls = self._extract_url.find(text)
+        urls: List[str] = self._extract_url.find(text)
         for url in urls:
-            text = text.replace(url.text, self._placeholder)
+            text = text.replace(url, self._placeholder)
 
         if self._filter_mention:
             text = self._RE_MENTION.sub(self._placeholder, text)
