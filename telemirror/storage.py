@@ -2,9 +2,7 @@ import collections
 from abc import abstractmethod
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
-from os import curdir
 from typing import List, Optional, Protocol
-import psycopg
 
 from psycopg.rows import class_row
 from psycopg_pool import AsyncConnectionPool
