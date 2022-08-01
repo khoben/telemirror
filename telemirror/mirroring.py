@@ -3,7 +3,7 @@ from typing import Dict, List, Union
 
 from telethon import TelegramClient, events, utils
 from telethon.sessions import StringSession
-from telethon.tl import types
+from telethon.tl import custom, types
 
 from .hints import EventLike
 from .messagefilters import EmptyMessageFilter, MesssageFilter
@@ -19,7 +19,7 @@ class EventHandlers:
             # skip if Album
             return
 
-        incoming_message: types.Message = event.message
+        incoming_message: custom.Message = event.message
         incoming_chat: int = event.chat_id
         incoming_message_link: str = self.event_message_link(event)
 
@@ -58,7 +58,7 @@ class EventHandlers:
     async def on_album(self: 'MirrorTelegramClient', event: events.Album.Event) -> None:
         """Album event handler"""
 
-        incoming_album: List[types.Message] = event.messages
+        incoming_album: List[custom.Message] = event.messages
         incoming_chat: int = event.chat_id
         incoming_album_link: str = self.event_message_link(event)
 
@@ -99,7 +99,7 @@ class EventHandlers:
             # skip if edit_hide (reactions and so on...)
             return
 
-        incoming_message: types.Message = event.message
+        incoming_message: custom.Message = event.message
         incoming_chat: int = event.chat_id
         incoming_message_link: str = self.event_message_link(event)
 

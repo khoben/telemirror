@@ -1,5 +1,5 @@
 from typing import Union
-from telethon import events, types, custom
+from telethon import events, custom
 
 EventLike = Union[
     events.NewMessage.Event,
@@ -8,4 +8,4 @@ EventLike = Union[
     events.MessageDeleted.Event
 ]
 
-MessageLike = Union[types.Message, custom.Message]
+MessageLike = custom.Message
