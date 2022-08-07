@@ -1,10 +1,11 @@
-# Telegram channel mirror via Telegram Client API (telethon)
+# Telegram forwarder from channels (make channel mirrors) via Telegram Client API (telethon)
 
 ### Functionality
 - No need to be added by the channel's admin
 - Listen to update events (new message, message edited, message deleted and etc)
 - Live forwarding and updating messages
 - Flexible mapping of source and target channels (one-to-one, many-to-one, many-to-many)
+- Configurable incoming message filters: appending forward header, filter URLs and so on
 
 ## Prepare
 0. It's better ***not to use your main account***. Register a new Telegram account
