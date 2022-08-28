@@ -1,6 +1,6 @@
 pysocks==1.7.1
 # telethon==1.24.0
-newthon==1.27.6
+newthon==1.27.4
 cryptg==0.3.1
 urlextract==1.6.0
 psycopg[binary,pool]==3.0.16
