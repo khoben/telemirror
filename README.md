@@ -4,7 +4,7 @@
 - No need to be added by the channel's admin
 - Listen to update events (new message, message edited, message deleted and etc)
 - Live forwarding and updating messages
-- Flexible mapping of source and target channels (one-to-one, many-to-one, many-to-many)
+- Flexible mapping of source and target channels/chats (one-to-one, many-to-one, many-to-many)
 - Configurable incoming message filters: appending forward header, filter URLs and so on
 
 ## Prepare
@@ -36,14 +36,14 @@
     API_HASH=test
     # Telegram session string (telethon session, see login.py in root directory)
     SESSION_STRING=test
-    # Mapping between source and target channels
-    # Channel id can be fetched by using @messageinformationsbot telegram bot
-    # and it always starts with -100 prefix
+    # Mapping between source and target channels/chats
+    # Channel/chat id can be fetched by using @messageinformationsbot telegram bot
+    # Channel id should be prefixed with -100
     # [id1, id2, id3:id4] means send messages from id1, id2, id3 to id4
     # id5:id6 means send messages from id5 to id6
     # [id1, id2, id3:id4];[id5:id6] semicolon means AND
     CHAT_MAPPING=[-100999999,-100999999,-100999999:-1009999999];
-    # Remove URLs from incoming messages (true or false).       Defaults to false
+    # Remove URLs from incoming messages (true or false). Defaults to false
     REMOVE_URLS=false
     # Comma-separated list of URLs to remove (reddit.com,youtube.com)
     REMOVE_URLS_LIST=google.com,twitter.com

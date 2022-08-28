@@ -18,7 +18,7 @@ def cast_mapping(v: str) -> dict:
     import re
 
     matches = re.findall(
-        r'\[?((?:-100\d+,?)+):((?:-100\d+,?)+)\]?', v, re.MULTILINE)
+        r'\[?((?:-?\d+,?)+):((?:-?\d+,?)+)\]?', v, re.MULTILINE)
     for match in matches:
         sources = [int(val) for val in match[0].split(',')]
         targets = [int(val) for val in match[1].split(',')]
