@@ -25,7 +25,7 @@ class EventHandlers:
             return
 
         # Skip albums
-        if event.grouped_id is not None:
+        if hasattr(event, 'grouped_id') and event.grouped_id is not None:
             return
 
         incoming_message: custom.Message = event.message
