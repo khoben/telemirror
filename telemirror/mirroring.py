@@ -32,19 +32,34 @@ class EventHandlers:
                 return
 
             incoming_message = await self._message_filter.process(incoming_message)
+
+            reply_to_messages: dict[int, int] = {}
+            if incoming_message.reply_to_msg_id:
+                mirror_messages = await self._database.get_messages(
+                    incoming_message.reply_to_msg_id, incoming_chat
+                )
+                if mirror_messages:
+                    reply_to_messages = {
+                        m.mirror_channel: m.mirror_id for m in mirror_messages}
+
             for outgoing_chat in outgoing_chats:
+
+                reply_to_message = reply_to_messages.get(outgoing_chat)
+
                 if isinstance(incoming_message.media, types.MessageMediaPoll):
                     outgoing_message = await self.send_message(
                         entity=outgoing_chat,
                         file=types.InputMediaPoll(
                             poll=incoming_message.media.poll
-                        )
+                        ),
+                        reply_to=reply_to_message
                     )
                 else:
                     outgoing_message = await self.send_message(
                         entity=outgoing_chat,
                         message=incoming_message,
-                        formatting_entities=incoming_message.entities
+                        formatting_entities=incoming_message.entities,
+                        reply_to=reply_to_message
                     )
 
                 if outgoing_message is not None:
