@@ -16,7 +16,7 @@ class EventHandlers:
         """NewMessage event handler"""
 
         # Skip 'restricted saving content' enabled
-        if event.message.chat.noforwards:
+        if hasattr(event.message.chat, 'noforwards') and event.message.chat.noforwards:
             self._logger.warning(
                 f'Forwards from channel ({event.chat_id}) with `restricted saving content` ' \
                 f'enabled are not supported. See https://github.com/khoben/telemirror#be-careful-with-forwards-from-' \
