@@ -104,8 +104,20 @@ class EventHandlers:
                 captions.append(incoming_message.message)
                 source_message_ids.append(incoming_message.id)
 
+            reply_to_messages: dict[int, int] = {}
+            if incoming_message.reply_to_msg_id:
+                mirror_messages = await self._database.get_messages(
+                    incoming_message.reply_to_msg_id, incoming_chat
+                )
+                if mirror_messages:
+                    reply_to_messages = {
+                        m.mirror_channel: m.mirror_id for m in mirror_messages}
+
             for outgoing_chat in outgoing_chats:
-                outgoing_messages = await self.send_file(entity=outgoing_chat, caption=captions, file=files)
+
+                reply_to_message = reply_to_messages.get(outgoing_chat)
+
+                outgoing_messages = await self.send_file(entity=outgoing_chat, caption=captions, file=files, reply_to=reply_to_message)
 
                 if outgoing_messages is not None and len(outgoing_messages) > 1:
                     for i, outgoing_message in enumerate(outgoing_messages):
