@@ -15,8 +15,17 @@ class EventHandlers:
     async def on_new_message(self: 'MirrorTelegramClient', event: events.NewMessage.Event) -> None:
         """NewMessage event handler"""
 
-        if hasattr(event, 'grouped_id') and event.grouped_id is not None:
-            # skip if Album
+        # Skip 'restricted saving content' enabled
+        if event.message.chat.noforwards:
+            self._logger.warning(
+                f'Forwards from channel ({event.chat_id}) with `restricted saving content` ' \
+                f'enabled are not supported. See https://github.com/khoben/telemirror#be-careful-with-forwards-from-' \
+                f'channels-with-restricted-saving-content-it-may-lead-to-an-account-ban'
+            )
+            return
+
+        # Skip albums
+        if event.grouped_id is not None:
             return
 
         incoming_message: custom.Message = event.message
