@@ -151,7 +151,8 @@ class EventHandlers:
                     message=outgoing_message.mirror_id,
                     text=incoming_message.message,
                     formatting_entities=incoming_message.entities,
-                    file=incoming_message.media
+                    file=incoming_message.media,
+                    link_preview=isinstance(incoming_message.media, types.MessageMediaWebPage)
                 )
         except Exception as e:
             self._logger.error(e, exc_info=True)

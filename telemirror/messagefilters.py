@@ -61,14 +61,21 @@ class UrlMessageFilter(MesssageFilter):
         self._extract_url = URLExtrator(blacklist, whitelist)
 
     async def process(self, message: MessageLike) -> MessageLike:
-        # replace plain text
+        # Filter out message text
         message.message = self._filter_text(message.message)
-        # remove MessageEntityTextUrl
-        if message.entities is not None:
+
+        # Filter message entities
+        if message.entities:
             message.entities = [
                 e for e in message.entities
                 if not(isinstance(e, types.MessageEntityTextUrl) and self._extract_url.has_urls(e.url))
             ]
+
+        # Filter link preview
+        if isinstance(message.media, types.MessageMediaWebPage) and \
+             isinstance(message.media.webpage, types.WebPage) and \
+                self._extract_url.has_urls(message.media.webpage.url):
+            message.media = None
         return message
 
     def _filter_text(self, text: str) -> str:
