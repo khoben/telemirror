@@ -1,13 +1,18 @@
 from typing import List
 from .urlextract_patched import URLExtractPatched
 
+
 class URLExtrator:
     def __init__(self, blacklist: set = set(), whitelist: set = set()) -> 'URLExtrator':
         """URLExtrator
 
         Args:
-            blacklist (set, optional): URLs among which will be found. Defaults to set().
-            whitelist (set, optional): URLs that will be ignored. Defaults to set().
+            blacklist (set, optional): 
+                URLs among which will be found. Defaults to set().
+
+            whitelist (set, optional): 
+                URLs that will be ignored. 
+                Will be applied after the `blacklist`. Defaults to set().
         """
         self._url_extract = URLExtractPatched()
         self._url_extract.ignore_list = whitelist

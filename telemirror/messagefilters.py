@@ -43,7 +43,8 @@ class UrlMessageFilter(MesssageFilter):
             URLs blacklist -- remove only these URLs. Defaults to {}.
 
         whitelist (`List[str]` | `Set[str]`, optional): 
-            URLs whitelist. Defaults to {}.
+            URLs whitelist -- remove all URLs except these. 
+            Will be applied after the `blacklist`. Defaults to {}.
     """
 
     _RE_MENTION = re.compile(r'@[\d\w]*')

@@ -47,7 +47,8 @@
     REMOVE_URLS=false
     # Comma-separated list of URLs to remove (reddit.com,youtube.com)
     REMOVE_URLS_LIST=google.com,twitter.com
-    # Comma-separated list of URLs to exclude from removal (google.com,twitter.com). Will be ignored if REMOVE_URLS_LIST is not empty
+    # Comma-separated list of URLs to exclude from removal (google.com,twitter.com).
+    # Will be applied after the REMOVE_URLS_LIST
     REMOVE_URLS_WL=youtube.com,youtu.be,vk.com,twitch.tv,instagram.com
     # Disable mirror message deleting (true or false). Defaults to false
     DISABLE_DELETE=false

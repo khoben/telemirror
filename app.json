@@ -38,7 +38,7 @@
             "required": false
         },
         "REMOVE_URLS_WL": {
-            "description": "Comma-separated list of URLs to exclude from removal (google.com,twitter.com). Will be ignored if REMOVE_URLS_LIST is not empty",
+            "description": "Comma-separated list of URLs to exclude from removal (google.com,twitter.com). Will be applied after the REMOVE_URLS_LIST",
             "required": false
         },
         "DISABLE_DELETE": {
