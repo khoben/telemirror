@@ -4,7 +4,5 @@ newthon==1.27.4
 markdown-it-py==2.1.0
 cryptg==0.3.1
 urlextract==1.6.0
-psycopg[binary,pool]==3.0.16
-psycopg-binary==3.0.16
-psycopg-pool==3.1.1
+psycopg[binary,pool]==3.1
 python-decouple==3.6
