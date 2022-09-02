@@ -92,11 +92,12 @@ class EventHandlers:
                 self._logger.warning(f'No target chats for {incoming_chat_id}')
                 return
 
+            incoming_album[0] = await self._message_filter.process(incoming_album[0])
+
             idx: list[int] = []
             files: list[types.TypeMessageMedia] = []
             captions: list[str] = []
             for incoming_message in incoming_album:
-                incoming_message = await self._message_filter.process(incoming_message)
                 idx.append(incoming_message.id)
                 files.append(incoming_message.media)
                 captions.append(incoming_message.message)
