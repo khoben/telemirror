@@ -5,6 +5,8 @@ from telethon import TelegramClient, events, utils
 from telethon.sessions import StringSession
 from telethon.tl import custom, types
 
+from telemirror import markdownV2 as mdv2
+
 from .hints import EventLike, MessageLike
 from .messagefilters import EmptyMessageFilter, MesssageFilter
 from .storage import Database, MirrorMessage
@@ -152,7 +154,8 @@ class EventHandlers:
                     text=incoming_message.message,
                     formatting_entities=incoming_message.entities,
                     file=incoming_message.media,
-                    link_preview=isinstance(incoming_message.media, types.MessageMediaWebPage)
+                    link_preview=isinstance(
+                        incoming_message.media, types.MessageMediaWebPage)
                 )
         except Exception as e:
             self._logger.error(e, exc_info=True)
@@ -268,6 +271,12 @@ class MirrorTelegramClient(TelegramClient, Mirroring):
         TelegramClient.__init__(self, StringSession(
             session_string), api_id, api_hash)
         Mirroring.__init__(self, *args, **kwargs)
+        # Set up default parse mode as markdownV2
+        self._parse_mode = mdv2
+
+    @TelegramClient.parse_mode.setter
+    def parse_mode(self: 'TelegramClient', mode: str):
+        raise NotImplementedError
 
     async def run(self: 'MirrorTelegramClient') -> None:
         """Start channels mirroring"""
