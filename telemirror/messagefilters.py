@@ -1,10 +1,10 @@
-import re
 from abc import abstractmethod
-from typing import List, Optional, Protocol, Set, Union
+from typing import List, Optional, Protocol, Set
 
 from telethon import types, utils
 from urlextractor import URLExtrator
 
+from . import markdownV2 as mdv2
 from .hints import MessageLike
 
 
@@ -30,7 +30,7 @@ class EmptyMessageFilter(MesssageFilter):
 
 
 class UrlMessageFilter(MesssageFilter):
-    """Url filter replaces found URLs to **placeholder**
+    """URLs message filter
 
     Args:
         placeholder (`str`, optional): 
@@ -39,54 +39,58 @@ class UrlMessageFilter(MesssageFilter):
         filter_mention (`bool`, optional): 
             Enable filter text mentions (@channel). Defaults to True.
 
-        blacklist (`List[str]` | `Set[str]`, optional): 
-            URLs blacklist -- remove only these URLs. Defaults to {}.
+        blacklist (`Set[str]`, optional): 
+            URLs blacklist -- remove only these URLs. Defaults to empty set.
 
-        whitelist (`List[str]` | `Set[str]`, optional): 
+        whitelist (`Set[str]`, optional): 
             URLs whitelist -- remove all URLs except these. 
-            Will be applied after the `blacklist`. Defaults to {}.
+            Will be applied after the `blacklist`. Defaults to empty set.
     """
-
-    _RE_MENTION = re.compile(r'@[\d\w]*')
 
     def __init__(
         self: 'UrlMessageFilter',
         placeholder: str = '***',
         filter_mention: bool = True,
-        blacklist: Union[List[str], Set[str]] = set(),
-        whitelist: Union[List[str], Set[str]] = set()
+        blacklist: Set[str] = set(),
+        whitelist: Set[str] = set()
     ) -> None:
         self._placeholder = placeholder
+        self._placeholder_len = len(placeholder)
         self._filter_mention = filter_mention
         self._extract_url = URLExtrator(blacklist, whitelist)
 
     async def process(self, message: MessageLike) -> MessageLike:
-        # Filter out message text
-        message.message = self._filter_text(message.message)
-
         # Filter message entities
         if message.entities:
-            message.entities = [
-                e for e in message.entities
-                if not(isinstance(e, types.MessageEntityTextUrl) and self._extract_url.has_urls(e.url))
-            ]
+            good_entities: List[types.TypeMessageEntity] = []
+            offset_error = 0
+            for e in message.entities:
+                e.offset += offset_error
+
+                entity_text = message.message[e.offset:e.offset+e.length]
+
+                # Filter URLs and mentions
+                if (isinstance(e, types.MessageEntityUrl) and self._extract_url.has_urls(entity_text)) \
+                        or (isinstance(e, types.MessageEntityMention) and self._filter_mention):
+                    message.message = message.message.replace(
+                        entity_text, self._placeholder, 1)
+                    offset_error += self._placeholder_len - e.length
+                    continue
+
+                # Keep only 'good' entities
+                if not ((isinstance(e, types.MessageEntityTextUrl) and self._extract_url.has_urls(e.url)) or
+                        (isinstance(e, types.MessageEntityMentionName) and self._filter_mention)):
+                    good_entities.append(e)
+
+            message.entities = good_entities
 
         # Filter link preview
         if isinstance(message.media, types.MessageMediaWebPage) and \
-             isinstance(message.media.webpage, types.WebPage) and \
+            isinstance(message.media.webpage, types.WebPage) and \
                 self._extract_url.has_urls(message.media.webpage.url):
             message.media = None
+
         return message
-
-    def _filter_text(self, text: str) -> str:
-        urls: List[str] = self._extract_url.find(text)
-        for url in urls:
-            text = text.replace(url, self._placeholder)
-
-        if self._filter_mention:
-            text = self._RE_MENTION.sub(self._placeholder, text)
-
-        return text
 
 
 class RestrictSavingContentBypassFilter(MesssageFilter):
@@ -139,6 +143,7 @@ class ForwardFormatFilter(MesssageFilter):
         are placeholders to actual incoming message values.
     """
 
+    MESSAGE_PLACEHOLDER: str = "{message_text}"
     DEFAULT_FORMAT: str = "{message_text}\n\nForwarded from [{channel_name}]({message_link})"
 
     def __init__(self, format: str = DEFAULT_FORMAT) -> None:
@@ -149,12 +154,34 @@ class ForwardFormatFilter(MesssageFilter):
         channel_name: str = utils.get_display_name(message.chat)
 
         if channel_name and message_link:
-            message.message, message.entities = \
-                await message.client._parse_message_text(
-                    self._format.format(
-                        channel_name=channel_name,
-                        message_link=message_link,
-                        message_text=message.message
-                    ), ()
-                )
+
+            pre_formatted_message = self._format.format(
+                channel_name=channel_name,
+                message_link=message_link,
+                message_text=self.MESSAGE_PLACEHOLDER
+            )
+            pre_formatted_text, pre_formatted_entities = mdv2.parse(
+                pre_formatted_message)
+
+            message_offset = pre_formatted_text.find(self.MESSAGE_PLACEHOLDER)
+
+            if message.entities:
+                for e in message.entities:
+                    e.offset += message_offset
+
+            if pre_formatted_entities:
+                message_placeholder_length_diff = len(
+                    message.message) - len(self.MESSAGE_PLACEHOLDER)
+                for e in pre_formatted_entities:
+                    if e.offset > message_offset:
+                        e.offset += message_placeholder_length_diff
+
+                if message.entities:
+                    message.entities.extend(pre_formatted_entities)
+                else:
+                    message.entities = pre_formatted_entities
+
+            message.message = pre_formatted_text.format(
+                message_text=message.message)
+
         return message
