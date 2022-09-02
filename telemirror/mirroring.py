@@ -100,7 +100,8 @@ class EventHandlers:
             for incoming_message in incoming_album:
                 idx.append(incoming_message.id)
                 files.append(incoming_message.media)
-                captions.append(incoming_message.message)
+                # Pass unparsed text, since: https://github.com/LonamiWebs/Telethon/issues/3065
+                captions.append(incoming_message.text)
 
             reply_to_messages: dict[int, int] = {
                 m.mirror_channel: m.mirror_id
