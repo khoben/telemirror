@@ -64,11 +64,8 @@ class UrlMessageFilter(MesssageFilter):
         if message.entities:
             good_entities: List[types.TypeMessageEntity] = []
             offset_error = 0
-            for e in message.entities:
+            for e, entity_text in message.get_entities_text():
                 e.offset += offset_error
-
-                entity_text = message.message[e.offset:e.offset+e.length]
-
                 # Filter URLs and mentions
                 if (isinstance(e, types.MessageEntityUrl) and self._extract_url.has_urls(entity_text)) \
                         or (isinstance(e, types.MessageEntityMention) and self._filter_mention):
@@ -170,8 +167,8 @@ class ForwardFormatFilter(MesssageFilter):
                     e.offset += message_offset
 
             if pre_formatted_entities:
-                message_placeholder_length_diff = len(
-                    message.message) - len(self.MESSAGE_PLACEHOLDER)
+                message_placeholder_length_diff = len(utils.add_surrogate(
+                    message.message)) - len(self.MESSAGE_PLACEHOLDER)
                 for e in pre_formatted_entities:
                     if e.offset > message_offset:
                         e.offset += message_placeholder_length_diff
