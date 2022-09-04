@@ -93,7 +93,8 @@ class EventHandlers:
                 self._logger.warning(f'No target chats for {incoming_chat_id}')
                 return
 
-            incoming_first_message = await self._message_filter.process(incoming_first_message)
+            # Apply filters to first non-empty or first message
+            await self._message_filter.process(next((m for m in incoming_album if m.message), incoming_first_message))
 
             idx: list[int] = []
             files: list[types.TypeMessageMedia] = []
