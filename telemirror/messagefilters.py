@@ -147,7 +147,7 @@ class ForwardFormatFilter(MesssageFilter):
         self._format = format
 
     async def process(self, message: MessageLike) -> MessageLike:
-        message_link: Optional[str] = message.link
+        message_link: Optional[str] = self._message_link(message)
         channel_name: str = utils.get_display_name(message.chat)
 
         if channel_name and message_link:
@@ -182,3 +182,13 @@ class ForwardFormatFilter(MesssageFilter):
                 message_text=message.message)
 
         return message
+    
+    def _message_link(self, message: MessageLike) -> Optional[str]:
+        """Get link to message from origin channel"""
+        if not isinstance(message.peer_id, types.PeerUser):
+            if hasattr(message.chat, "username") and message.chat.username:
+                link = f"https://t.me/{message.chat.username}/{message.id}"
+            else:
+                link = f"https://t.me/c/{message.chat.id}/{message.id}"
+            return link
+        return None
