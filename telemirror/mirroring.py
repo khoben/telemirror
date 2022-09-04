@@ -149,7 +149,7 @@ class EventHandlers:
                     f'No target messages to edit for {incoming_message_link}')
                 return
 
-            if not (incoming_message.grouped_id and incoming_message.message):
+            if incoming_message.grouped_id is None or incoming_message.message:
                 incoming_message = await self._message_filter.process(incoming_message)
 
             for outgoing_message in outgoing_messages:
