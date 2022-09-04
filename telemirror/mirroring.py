@@ -84,6 +84,7 @@ class EventHandlers:
         self._logger.info(f'New album: {self.event_message_link(event)}')
 
         incoming_album: List[MessageLike] = event.messages
+        incoming_first_message: MessageLike = incoming_album[0]
         incoming_chat_id: int = event.chat_id
 
         try:
@@ -92,7 +93,7 @@ class EventHandlers:
                 self._logger.warning(f'No target chats for {incoming_chat_id}')
                 return
 
-            incoming_album[0] = await self._message_filter.process(incoming_album[0])
+            incoming_first_message = await self._message_filter.process(incoming_first_message)
 
             idx: list[int] = []
             files: list[types.TypeMessageMedia] = []
@@ -105,8 +106,8 @@ class EventHandlers:
 
             reply_to_messages: dict[int, int] = {
                 m.mirror_channel: m.mirror_id
-                for m in await self._database.get_messages(incoming_album[0].reply_to_msg_id, incoming_chat_id)
-            } if incoming_album[0].reply_to_msg_id else {}
+                for m in await self._database.get_messages(incoming_first_message.reply_to_msg_id, incoming_chat_id)
+            } if incoming_first_message.reply_to_msg_id else {}
 
             for outgoing_chat in outgoing_chats:
                 outgoing_messages: list[types.Message] = await self.send_file(
