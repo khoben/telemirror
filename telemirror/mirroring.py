@@ -2,10 +2,9 @@ import logging
 from typing import Dict, List, Union
 
 from telethon import TelegramClient, events, utils
+from telethon.extensions import markdown
 from telethon.sessions import StringSession
 from telethon.tl import types
-
-from telemirror import markdownV2 as mdv2
 
 from .hints import EventLike, MessageLike
 from .messagefilters import EmptyMessageFilter, MesssageFilter
@@ -276,8 +275,8 @@ class MirrorTelegramClient(TelegramClient, Mirroring):
         TelegramClient.__init__(self, StringSession(
             session_string), api_id, api_hash)
         Mirroring.__init__(self, *args, **kwargs)
-        # Set up default parse mode as markdownV2
-        self._parse_mode = mdv2
+        # Set up default parse mode as markdown
+        self._parse_mode = markdown
 
     @TelegramClient.parse_mode.setter
     def parse_mode(self: 'TelegramClient', mode: str):

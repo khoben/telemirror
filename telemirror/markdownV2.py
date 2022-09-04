@@ -5,6 +5,8 @@ since they seem to count as two characters and it's a bit strange.
 
 Source from v2 branch:
 https://github.com/LonamiWebs/Telethon/blob/539e3cb8081acbd9a5cc7a61c0731ca62842597e/telethon/_misc/markdown.py
+
+Need investigation: works incorrectly with EditMessage event
 """
 import re
 from typing import List, Tuple

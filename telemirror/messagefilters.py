@@ -2,9 +2,9 @@ from abc import abstractmethod
 from typing import List, Optional, Protocol, Set
 
 from telethon import types, utils
+from telethon.extensions import markdown as md
 from urlextractor import URLExtrator
 
-from . import markdownV2 as mdv2
 from .hints import MessageLike
 
 
@@ -157,7 +157,7 @@ class ForwardFormatFilter(MesssageFilter):
                 message_link=message_link,
                 message_text=self.MESSAGE_PLACEHOLDER
             )
-            pre_formatted_text, pre_formatted_entities = mdv2.parse(
+            pre_formatted_text, pre_formatted_entities = md.parse(
                 pre_formatted_message)
 
             message_offset = pre_formatted_text.find(self.MESSAGE_PLACEHOLDER)
