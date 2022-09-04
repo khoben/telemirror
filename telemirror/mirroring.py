@@ -3,7 +3,7 @@ from typing import Dict, List, Union
 
 from telethon import TelegramClient, events, utils
 from telethon.sessions import StringSession
-from telethon.tl import custom, types
+from telethon.tl import types
 
 from telemirror import markdownV2 as mdv2
 
@@ -137,7 +137,7 @@ class EventHandlers:
         incoming_message_link: str = self.event_message_link(event)
         self._logger.info(f'Edit message: {incoming_message_link}')
 
-        incoming_message: custom.Message = event.message
+        incoming_message: MessageLike = event.message
         incoming_chat: int = event.chat_id
 
         try:
