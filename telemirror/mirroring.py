@@ -46,7 +46,7 @@ class EventHandlers:
             reply_to_messages: dict[int, int] = {
                 m.mirror_channel: m.mirror_id
                 for m in await self._database.get_messages(incoming_message.reply_to_msg_id, incoming_chat_id)
-            } if incoming_message.reply_to_msg_id else {}
+            } if incoming_message.is_reply else {}
 
             for outgoing_chat in outgoing_chats:
 
@@ -108,7 +108,7 @@ class EventHandlers:
             reply_to_messages: dict[int, int] = {
                 m.mirror_channel: m.mirror_id
                 for m in await self._database.get_messages(incoming_first_message.reply_to_msg_id, incoming_chat_id)
-            } if incoming_first_message.reply_to_msg_id else {}
+            } if incoming_first_message.is_reply else {}
 
             for outgoing_chat in outgoing_chats:
                 outgoing_messages: list[types.Message] = await self.send_file(
