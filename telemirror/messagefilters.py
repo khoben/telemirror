@@ -3,9 +3,9 @@ from typing import List, Optional, Protocol, Set
 
 from telethon import types, utils
 from telethon.extensions import markdown as md
-from urlextractor import URLExtrator
 
 from .hints import MessageLike
+from .misc.uri import UriGuard
 
 
 class MesssageFilter(Protocol):
@@ -57,7 +57,7 @@ class UrlMessageFilter(MesssageFilter):
         self._placeholder = placeholder
         self._placeholder_len = len(placeholder)
         self._filter_mention = filter_mention
-        self._extract_url = URLExtrator(blacklist, whitelist)
+        self._uri_guard = UriGuard(blacklist, whitelist)
 
     async def process(self, message: MessageLike) -> MessageLike:
         # Filter message entities
@@ -67,7 +67,7 @@ class UrlMessageFilter(MesssageFilter):
             for e, entity_text in message.get_entities_text():
                 e.offset += offset_error
                 # Filter URLs and mentions
-                if (isinstance(e, types.MessageEntityUrl) and self._extract_url.has_urls(entity_text)) \
+                if (isinstance(e, types.MessageEntityUrl) and self._uri_guard.is_should_filtered(entity_text)) \
                         or (isinstance(e, types.MessageEntityMention) and self._filter_mention):
                     message.message = message.message.replace(
                         entity_text, self._placeholder, 1)
@@ -75,7 +75,7 @@ class UrlMessageFilter(MesssageFilter):
                     continue
 
                 # Keep only 'good' entities
-                if not ((isinstance(e, types.MessageEntityTextUrl) and self._extract_url.has_urls(e.url)) or
+                if not ((isinstance(e, types.MessageEntityTextUrl) and self._uri_guard.is_should_filtered(e.url)) or
                         (isinstance(e, types.MessageEntityMentionName) and self._filter_mention)):
                     good_entities.append(e)
 
@@ -84,7 +84,7 @@ class UrlMessageFilter(MesssageFilter):
         # Filter link preview
         if isinstance(message.media, types.MessageMediaWebPage) and \
             isinstance(message.media.webpage, types.WebPage) and \
-                self._extract_url.has_urls(message.media.webpage.url):
+                self._uri_guard.is_should_filtered(message.media.webpage.url):
             message.media = None
 
         return message
