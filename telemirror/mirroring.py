@@ -257,16 +257,19 @@ class Mirroring(EventHandlers):
             self.add_event_handler(self.on_deleted_message,
                                    events.MessageDeleted(chats=source_chats))
 
-    def print_config(self: 'MirrorTelegramClient') -> str:
-        """Prints mirror config"""
+    def printable_config(self: 'MirrorTelegramClient') -> str:
+        """Get printable mirror config"""
 
-        return f"""
-        Mirror mapping: { self._mirror_mapping }
-        Message deleting: { "Disabled" if self._disable_delete else "Enabled" }
-        Message editing: { "Disabled" if self._disable_edit else "Enabled" }
-        Installed message filter: { self._message_filter }
-        Using { self._database } database
-        """
+        mirror_mapping = '\n'.join(
+            [f'{f} -> {", ".join(map(str, to))}' for (f, to) in self._mirror_mapping.items()])
+
+        return (
+            f'Mirror mapping: \n{ mirror_mapping }\n'
+            f'Message deleting: { "Disabled" if self._disable_delete else "Enabled" }\n'
+            f'Message editing: { "Disabled" if self._disable_edit else "Enabled" }\n'
+            f'Installed message filter: { self._message_filter }\n'
+            f'Using database: { self._database }\n'
+        )
 
 
 class MirrorTelegramClient(TelegramClient, Mirroring):
@@ -290,7 +293,7 @@ class MirrorTelegramClient(TelegramClient, Mirroring):
             self._logger.info(
                 f'Logged in as {utils.get_display_name(me)} ({me.phone})')
             self._logger.info(
-                f'Channel mirroring has started with config:\n{self.print_config()}')
+                f'Channel mirroring has started with config:\n{self.printable_config()}')
             await self.run_until_disconnected()
         else:
             raise RuntimeError(

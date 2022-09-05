@@ -21,6 +21,9 @@ class MesssageFilter(Protocol):
         """
         raise NotImplementedError
 
+    def __repr__(self) -> str:
+        return self.__class__.__name__
+
 
 class EmptyMessageFilter(MesssageFilter):
     """Do nothing with message"""
@@ -122,6 +125,9 @@ class CompositeMessageFilter(MesssageFilter):
         for f in self._filters:
             message = await f.process(message)
         return message
+
+    def __repr__(self) -> str:
+        return f'{self.__class__.__name__}: {self._filters}'
 
 
 class ForwardFormatFilter(MesssageFilter):

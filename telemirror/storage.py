@@ -76,6 +76,9 @@ class Database(Protocol):
         """
         raise NotImplementedError
 
+    def __repr__(self) -> str:
+        return self.__class__.__name__
+
 
 class InMemoryDatabase(Database):
     """
