@@ -1,5 +1,5 @@
-# telethon==1.24.0
-newthon==1.27.4
+# telethon 1.25 with fixed Album event
+git+https://github.com/LonamiWebs/Telethon@50aa92ebdecf5422205af98dfd2728f249ee42be#egg=telethon
 cryptg==0.3.1
-psycopg[binary,pool]==3.1
+psycopg[binary,pool]==3.1.1
 python-decouple==3.6
