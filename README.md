@@ -5,7 +5,11 @@
 - Listen to update events (new message, message edited, message deleted and etc)
 - Live forwarding and updating messages
 - Flexible mapping of source and target channels/chats (one-to-one, many-to-one, many-to-many)
-- Configurable incoming message filters: appending forward header, filter URLs and so on
+- Configurable incoming message filters:
+    - [UrlMessageFilter](/telemirror/messagefilters.py#L35) - URLs filter
+    - [ForwardFormatFilter](/telemirror/messagefilters.py#L145) - Forward formatting filter
+    - [RestrictSavingContentBypassFilter](/telemirror/messagefilters.py#L96) - `Saving content restriction` filter (not ready, PRs are welcome)
+    - [CompositeMessageFilter](/telemirror/messagefilters.py#L125) - Composite filter that sequentially applies other filters
 
 ## Prepare
 0. It's better ***not to use your main account***. Register a new Telegram account
@@ -72,7 +76,7 @@
 
 ### Be careful with forwards from channels with [`restricted saving content`](https://telegram.org/blog/protected-content-delete-by-date-and-more). It may lead to an account ban. 
 
-Help is also welcome to work around this limitation. See [sources](/telemirror/messagefilters.py#L84).
+If you want to bypass forward restriction, see [RestrictSavingContentBypassFilter source](/telemirror/messagefilters.py#L96) to start.
 
 ## Deploy
 
