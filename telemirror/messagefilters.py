@@ -96,13 +96,25 @@ class UrlMessageFilter(MesssageFilter):
 class RestrictSavingContentBypassFilter(MesssageFilter):
     """Filter that bypasses `saving content restriction`
 
-    Maybe download the media, upload it to the Telegram servers,
+    Sample implementation:
+    Download the media, upload it to the Telegram servers,
     and then change to the new uploaded media:
 
     ```
-    downloaded = await client.download_media(message, file=bytes)
-    uploaded = await client.upload_file(downloaded)
-    # set uploaded as message file
+    if not message.media or not message.chat.noforwards:
+        return message
+
+    # Handle photos
+    if isinstance(message.media, types.MessageMediaPhoto):
+        client: TelegramClient = message.client
+        photo: bytes = client.download_media(message=message, file=bytes)
+        cloned_photo: types.TypeInputFile = client.upload_file(photo)
+        message.media = cloned_photo
+    
+    # Others types...
+
+    return message
+        
     ```
     """
 
