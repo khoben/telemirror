@@ -2,7 +2,7 @@ import collections
 from abc import abstractmethod
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
-from typing import List, Optional, Protocol
+from typing import List, Protocol
 
 from psycopg.rows import class_row
 from psycopg_pool import AsyncConnectionPool
@@ -52,7 +52,7 @@ class Database(Protocol):
         raise NotImplementedError
 
     @abstractmethod
-    async def get_messages(self: 'Database', original_id: int, original_channel: int) -> Optional[List[MirrorMessage]]:
+    async def get_messages(self: 'Database', original_id: int, original_channel: int) -> List[MirrorMessage]:
         """
         Finds `MirrorMessage` objects with `original_id` and `original_channel` values
 
@@ -61,7 +61,7 @@ class Database(Protocol):
             original_channel (`int`): Source channel ID
 
         Returns:
-            Optional[List[MirrorMessage]]
+            List[MirrorMessage]
         """
         raise NotImplementedError
 
@@ -135,7 +135,7 @@ class InMemoryDatabase(Database):
         self.__stored.setdefault(self.__build_message_hash(
             entity.original_id, entity.original_channel), []).append(entity)
 
-    async def get_messages(self: 'InMemoryDatabase', original_id: int, original_channel: int) -> Optional[List[MirrorMessage]]:
+    async def get_messages(self: 'InMemoryDatabase', original_id: int, original_channel: int) -> List[MirrorMessage]:
         """
         Finds `MirrorMessage` objects with `original_id` and `original_channel` values
 
@@ -144,9 +144,9 @@ class InMemoryDatabase(Database):
             original_channel (`int`): Source channel ID
 
         Returns:
-            Optional[List[MirrorMessage]]
+            List[MirrorMessage]
         """
-        return self.__stored.get(self.__build_message_hash(original_id, original_channel), None)
+        return self.__stored.get(self.__build_message_hash(original_id, original_channel), [])
 
     async def delete_messages(self: 'InMemoryDatabase', original_id: int, original_channel: int) -> None:
         """
@@ -231,7 +231,7 @@ class PostgresDatabase(Database):
                                 VALUES (%s, %s, %s, %s)
                                 """, (entity.original_id, entity.original_channel, entity.mirror_id, entity.mirror_channel,))
 
-    async def get_messages(self: 'PostgresDatabase', original_id: int, original_channel: int) -> Optional[List[MirrorMessage]]:
+    async def get_messages(self: 'PostgresDatabase', original_id: int, original_channel: int) -> List[MirrorMessage]:
         """
         Finds `MirrorMessage` objects with `original_id` and `original_channel` values
 
@@ -240,9 +240,9 @@ class PostgresDatabase(Database):
             original_channel (`int`): Source channel ID
 
         Returns:
-            Optional[List[MirrorMessage]]
+            List[MirrorMessage]
         """
-        rows: Optional[List[MirrorMessage]] = None
+        rows: List[MirrorMessage] = []
         async with self.__pg_cursor() as cursor:
             cursor.row_factory = class_row(MirrorMessage)
             await cursor.execute("""
