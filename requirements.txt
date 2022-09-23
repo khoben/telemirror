@@ -1,5 +1,5 @@
-# telethon 1.25 with fixed Album event
-git+https://github.com/LonamiWebs/Telethon@50aa92ebdecf5422205af98dfd2728f249ee42be#egg=telethon
+# telethon v1 branch: https://github.com/LonamiWebs/Telethon/commit/346a3f0ef5652111c7bc167d4ccef5eb851c7901
+git+https://github.com/LonamiWebs/Telethon@346a3f0ef5652111c7bc167d4ccef5eb851c7901#egg=telethon
 cryptg==0.3.1
-psycopg[binary,pool]==3.1.1
+psycopg[binary,pool]==3.1.2
 python-decouple==3.6
