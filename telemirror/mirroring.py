@@ -7,7 +7,7 @@ from telethon.sessions import StringSession
 from telethon.tl import types
 
 from .hints import EventLike, MessageLike
-from .messagefilters import EmptyMessageFilter, MesssageFilter
+from .messagefilters import EmptyMessageFilter, MessageFilter
 from .storage import Database, MirrorMessage
 
 
@@ -215,7 +215,7 @@ class Mirroring(EventHandlers):
         source_chats: List[int],
         mirror_mapping: Dict[int, List[int]],
         database: Database,
-        message_filter: MesssageFilter = EmptyMessageFilter(),
+        message_filter: MessageFilter = EmptyMessageFilter(),
         disable_edit: bool = False,
         disable_delete: bool = False,
         logger: Union[str, logging.Logger] = None,
@@ -226,7 +226,7 @@ class Mirroring(EventHandlers):
             source_chats (`List[int]`): Source chats ID list
             mirror_mapping (`Dict[int, List[int]]`): Mapping dictionary: {source: [target1, target2...]}
             database (`Database`): Message ID storage
-            message_filter (`MesssageFilter`, optional): Message filter. Defaults to `EmptyMessageFilter`.
+            message_filter (`MessageFilter`, optional): Message filter. Defaults to `EmptyMessageFilter`.
             disable_edit (`bool`, optional): Disable mirror message editing. Defaults to `False`.
             disable_delete (`bool`, optional): Disable mirror message deleting. Defaults to `False`.
             logger (`str` | `logging.Logger`, optional): Logger. Defaults to None.

@@ -8,7 +8,7 @@ from .hints import MessageLike
 from .misc.uri import UriGuard
 
 
-class MesssageFilter(Protocol):
+class MessageFilter(Protocol):
     @abstractmethod
     async def process(self, message: MessageLike) -> MessageLike:
         """Apply filter to **message**
@@ -25,14 +25,14 @@ class MesssageFilter(Protocol):
         return self.__class__.__name__
 
 
-class EmptyMessageFilter(MesssageFilter):
+class EmptyMessageFilter(MessageFilter):
     """Do nothing with message"""
 
     async def process(self, message: MessageLike) -> MessageLike:
         return message
 
 
-class UrlMessageFilter(MesssageFilter):
+class UrlMessageFilter(MessageFilter):
     """URLs message filter
 
     Args:
@@ -93,7 +93,7 @@ class UrlMessageFilter(MesssageFilter):
         return message
 
 
-class RestrictSavingContentBypassFilter(MesssageFilter):
+class RestrictSavingContentBypassFilter(MessageFilter):
     """Filter that bypasses `saving content restriction`
 
     Sample implementation:
@@ -122,7 +122,7 @@ class RestrictSavingContentBypassFilter(MesssageFilter):
         raise NotImplementedError
 
 
-class CompositeMessageFilter(MesssageFilter):
+class CompositeMessageFilter(MessageFilter):
     """Composite message filter that sequentially applies the filters
 
     Args:
@@ -130,7 +130,7 @@ class CompositeMessageFilter(MesssageFilter):
             Message filters 
     """
 
-    def __init__(self, *arg: MesssageFilter) -> None:
+    def __init__(self, *arg: MessageFilter) -> None:
         self._filters = list(arg)
 
     async def process(self, message: MessageLike) -> MessageLike:
@@ -142,7 +142,7 @@ class CompositeMessageFilter(MesssageFilter):
         return f'{self.__class__.__name__}: {self._filters}'
 
 
-class ForwardFormatFilter(MesssageFilter):
+class ForwardFormatFilter(MessageFilter):
     """Filter that adds a forwarding formatting (markdown supported): 
 
     Example:
