@@ -9,15 +9,16 @@ from .misc.uri import UriGuard
 
 
 class MessageFilter(Protocol):
+
     @abstractmethod
-    async def process(self, message: MessageLike) -> MessageLike:
+    async def process(self, message: MessageLike) -> bool:
         """Apply filter to **message**
 
         Args:
             message (`MessageLike`): Source message
 
         Returns:
-            `MessageLike`: Filtered message
+            bool: Indicates that the filtered message should be forwarded
         """
         raise NotImplementedError
 
@@ -28,8 +29,8 @@ class MessageFilter(Protocol):
 class EmptyMessageFilter(MessageFilter):
     """Do nothing with message"""
 
-    async def process(self, message: MessageLike) -> MessageLike:
-        return message
+    async def process(self, message: MessageLike) -> bool:
+        return True
 
 
 class UrlMessageFilter(MessageFilter):
@@ -62,7 +63,7 @@ class UrlMessageFilter(MessageFilter):
         self._filter_mention = filter_mention
         self._uri_guard = UriGuard(blacklist, whitelist)
 
-    async def process(self, message: MessageLike) -> MessageLike:
+    async def process(self, message: MessageLike) -> bool:
         # Filter message entities
         if message.entities:
             good_entities: List[types.TypeMessageEntity] = []
@@ -90,7 +91,7 @@ class UrlMessageFilter(MessageFilter):
                 self._uri_guard.is_should_filtered(message.media.webpage.url):
             message.media = None
 
-        return message
+        return True
 
 
 class RestrictSavingContentBypassFilter(MessageFilter):
@@ -110,11 +111,11 @@ class RestrictSavingContentBypassFilter(MessageFilter):
         photo: bytes = client.download_media(message=message, file=bytes)
         cloned_photo: types.TypeInputFile = client.upload_file(photo)
         message.media = cloned_photo
-    
+
     # Others types...
 
     return message
-        
+
     ```
     """
 
@@ -133,10 +134,11 @@ class CompositeMessageFilter(MessageFilter):
     def __init__(self, *arg: MessageFilter) -> None:
         self._filters = list(arg)
 
-    async def process(self, message: MessageLike) -> MessageLike:
+    async def process(self, message: MessageLike) -> bool:
         for f in self._filters:
-            message = await f.process(message)
-        return message
+            if await f.process(message) is False:
+                return False
+        return True
 
     def __repr__(self) -> str:
         return f'{self.__class__.__name__}: {self._filters}'
@@ -164,7 +166,7 @@ class ForwardFormatFilter(MessageFilter):
     def __init__(self, format: str = DEFAULT_FORMAT) -> None:
         self._format = format
 
-    async def process(self, message: MessageLike) -> MessageLike:
+    async def process(self, message: MessageLike) -> bool:
         message_link: Optional[str] = self._message_link(message)
         channel_name: str = utils.get_display_name(message.chat)
 
@@ -199,8 +201,8 @@ class ForwardFormatFilter(MessageFilter):
             message.message = pre_formatted_text.format(
                 message_text=message.message)
 
-        return message
-    
+        return True
+
     def _message_link(self, message: MessageLike) -> Optional[str]:
         """Get link to message from origin channel"""
         if not isinstance(message.peer_id, types.PeerUser):

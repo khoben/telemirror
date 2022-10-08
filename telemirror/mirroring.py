@@ -29,7 +29,9 @@ class EventHandlers:
             )
             return
 
-        self._logger.info(f'New message: {self.event_message_link(event)}')
+        incoming_message_link: str = self.event_message_link(event)
+
+        self._logger.info(f'New message: {incoming_message_link}')
 
         incoming_chat_id: int = event.chat_id
         incoming_message: MessageLike = event.message
@@ -40,7 +42,9 @@ class EventHandlers:
                 self._logger.warning(f'No target chats for {incoming_chat_id}')
                 return
 
-            incoming_message = await self._message_filter.process(incoming_message)
+            if await self._message_filter.process(incoming_message) is False:
+                self._logger.info(f'Skipping message {incoming_message_link} by filter')
+                return
 
             reply_to_messages: dict[int, int] = {
                 m.mirror_channel: m.mirror_id
@@ -80,7 +84,8 @@ class EventHandlers:
             )
             return
 
-        self._logger.info(f'New album: {self.event_message_link(event)}')
+        incoming_message_link: str = self.event_message_link(event)
+        self._logger.info(f'New album: {incoming_message_link}')
 
         incoming_album: List[MessageLike] = event.messages
         incoming_first_message: MessageLike = incoming_album[0]
@@ -93,7 +98,9 @@ class EventHandlers:
                 return
 
             # Apply filters to first non-empty or first message
-            await self._message_filter.process(next((m for m in incoming_album if m.message), incoming_first_message))
+            if await self._message_filter.process(next((m for m in incoming_album if m.message), incoming_first_message)) is False:
+                self._logger.info(f'Skipping album {incoming_message_link} by filter')
+                return
 
             idx: list[int] = []
             files: list[types.TypeMessageMedia] = []
@@ -149,7 +156,7 @@ class EventHandlers:
                 return
 
             if incoming_message.grouped_id is None or incoming_message.message:
-                incoming_message = await self._message_filter.process(incoming_message)
+                await self._message_filter.process(incoming_message)
 
             for outgoing_message in outgoing_messages:
                 await self.edit_message(
