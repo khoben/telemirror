@@ -1,27 +1,18 @@
 import logging
 
-from config import (API_HASH, API_ID, CHAT_MAPPING, DB_URL, DISABLE_DELETE,
-                    DISABLE_EDIT, LOG_LEVEL, REMOVE_URLS)
-from config import REMOVE_URLS_LIST as URLS_BLACKLIST
-from config import REMOVE_URLS_WHITELIST as URLS_WHITELIST
-from config import SESSION_STRING, SOURCE_CHATS, USE_MEMORY_DB
-from telemirror.messagefilters import (EmptyMessageFilter, MessageFilter,
-                                       UrlMessageFilter)
+from config import (API_HASH, API_ID, DB_URL, LOG_LEVEL, SESSION_STRING,
+                    USE_MEMORY_DB, MIRROR_CONFIG)
 from telemirror.mirroring import MirrorTelegramClient
 from telemirror.storage import Database, InMemoryDatabase, PostgresDatabase
 
 
-async def init_telemirror(logger: logging.Logger, database: Database, message_filter: MessageFilter):
+async def init_telemirror(logger: logging.Logger, database: Database):
     await MirrorTelegramClient(
         SESSION_STRING,
         api_id=API_ID,
         api_hash=API_HASH,
-        source_chats=SOURCE_CHATS,
-        mirror_mapping=CHAT_MAPPING,
+        mirror_config=MIRROR_CONFIG,
         database=await database.async_init(),
-        message_filter=message_filter,
-        disable_edit=DISABLE_EDIT,
-        disable_delete=DISABLE_DELETE,
         logger=logger
     ).run()
 
@@ -34,12 +25,6 @@ def main():
     logger = logging.getLogger(__name__)
     logger.setLevel(level=LOG_LEVEL)
 
-    if REMOVE_URLS:
-        url_message_filter = UrlMessageFilter(
-            blacklist=URLS_BLACKLIST, whitelist=URLS_WHITELIST)
-    else:
-        url_message_filter = EmptyMessageFilter()
-
     if USE_MEMORY_DB:
         database = InMemoryDatabase()
     else:
@@ -48,7 +33,7 @@ def main():
             asyncio.set_event_loop_policy(
                 asyncio.WindowsSelectorEventLoopPolicy())
 
-    asyncio.run(init_telemirror(logger, database, url_message_filter))
+    asyncio.run(init_telemirror(logger, database))
 
 
 if __name__ == "__main__":

@@ -6,10 +6,11 @@
 - Live forwarding and updating messages
 - Flexible mapping of source and target channels/chats (one-to-one, many-to-one, many-to-many)
 - Configurable incoming message filters:
-    - [UrlMessageFilter](/telemirror/messagefilters.py#L35) - URLs filter
-    - [ForwardFormatFilter](/telemirror/messagefilters.py#L145) - Forward formatting filter
-    - [RestrictSavingContentBypassFilter](/telemirror/messagefilters.py#L96) - `Saving content restriction` filter (not ready, PRs are welcome)
-    - [CompositeMessageFilter](/telemirror/messagefilters.py#L125) - Composite filter that sequentially applies other filters
+    - [CompositeMessageFilter](/telemirror/messagefilters.py#L29) - Composite filter that sequentially applies other filters
+    - [SkipUrlFilter](/telemirror/messagefilters.py#L57) - Skip messages with URLs
+    - [UrlMessageFilter](/telemirror/messagefilters.py#L84) - URLs filter
+    - [ForwardFormatFilter](/telemirror/messagefilters.py#L174) - Forward formatting filter
+    - [RestrictSavingContentBypassFilter](/telemirror/messagefilters.py#L145) - `Saving content restriction` filter (not ready, PRs are welcome)
 
 ## Prepare
 0. It's better ***not to use your main account***. Register a new Telegram account
@@ -24,6 +25,12 @@
 
 4. Fill [.env-example](.env-example) with your data and rename it to `.env`
 
+    ❗ Please never push your `.env`/`.yml` files with real crendential to a public repo. Use a separate branch (eg, `heroku-branch`) with `.env`/`.yml` files to push to git-based deployment system like Heroku:
+
+    ```bash
+    git push heroku heroku-branch:master
+    ```
+
     [.env-example](.env-example) contains the minimum environment configuration to run with an in-memory database.
 
     **SESSION_STRING** can be obtained by running [login.py](login.py) locally (on your PC with installed python 3.9+) with putted **API_ID** and **API_HASH** before.
@@ -31,7 +38,7 @@
     Channels ID can be fetched by using [@messageinformationsbot](https://t.me/messageinformationsbot) Telegram bot (just send it a message from the desired channel).
     
     <details>
-        <summary><b>.env overview</b></summary>
+    <summary><b>.env overview</b></summary>
 
     ```bash
     # Telegram app ID
@@ -70,7 +77,46 @@
     # Logging level (debug, info, warning, error or critical). Defaults to info
     LOG_LEVEL=info
     ```
-</details> 
+    </details>
+
+    <br/>
+    For more flexible configurations, use yaml:
+
+    <details>
+    <summary><b>mirror.config.yml</b> overview</summary>
+
+    ```yaml
+    # Global filters, will be applied in order
+    filters: 
+      - ForwardFormatFilter: # Filter name under telemirror/messagefilters.py
+          format: ""           # Filters arguments
+      - EmptyMessageFilter
+      - UrlMessageFilter:
+          blacklist: !!set
+            ? t.me
+      - SkipUrlFilter:
+          skip_mention: false
+
+    # Global settings
+    disable_edit: true
+    disable_delete: true
+
+    # Mirror directions
+    directions:
+      - from: [-1001, -1002, -1003]
+        to: -100203
+        # Overwrite global filters
+        filters:
+          - EmptyMessageFilter
+        # Overwrite global settings
+        disable_edit: true
+        disable_delete: true
+
+      - from: [-100226]
+        to: -1006
+    ```
+    </details>
+    <br/>
 
 5. Make sure the account has joined source and target channels
 

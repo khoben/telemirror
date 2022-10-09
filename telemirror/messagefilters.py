@@ -26,10 +26,58 @@ class MessageFilter(Protocol):
         return self.__class__.__name__
 
 
+class CompositeMessageFilter(MessageFilter):
+    """Composite message filter that sequentially applies the filters
+
+    Args:
+        *arg (`MessageFilter`):
+            Message filters 
+    """
+
+    def __init__(self, *arg: MessageFilter) -> None:
+        self._filters = list(arg)
+
+    async def process(self, message: MessageLike) -> bool:
+        for f in self._filters:
+            if await f.process(message) is False:
+                return False
+        return True
+
+    def __repr__(self) -> str:
+        return f'{self.__class__.__name__}: {self._filters}'
+
+
 class EmptyMessageFilter(MessageFilter):
     """Do nothing with message"""
 
     async def process(self, message: MessageLike) -> bool:
+        return True
+
+
+class SkipUrlFilter(MessageFilter):
+    """Skip messages with URLs
+
+    Args:
+        skip_mention (`bool`, optional): 
+            Enable skipping text mentions (@channel). Defaults to True.
+    """
+
+    def __init__(
+        self: 'SkipUrlFilter',
+        skip_mention: bool = True
+    ) -> None:
+        self._skip_mention = skip_mention
+
+    async def process(self, message: MessageLike) -> bool:
+        if message.entities:
+            for e in message.entities:
+                if isinstance(e, (types.MessageEntityUrl, types.MessageEntityTextUrl)) or \
+                        (isinstance(e, (types.MessageEntityMention, types.MessageEntityMentionName)) and self._skip_mention):
+                    return False
+
+        if isinstance(message.media, types.MessageMediaWebPage):
+            return False
+
         return True
 
 
@@ -121,27 +169,6 @@ class RestrictSavingContentBypassFilter(MessageFilter):
 
     async def process(self, message: MessageLike) -> MessageLike:
         raise NotImplementedError
-
-
-class CompositeMessageFilter(MessageFilter):
-    """Composite message filter that sequentially applies the filters
-
-    Args:
-        *arg (`MessageFilter`):
-            Message filters 
-    """
-
-    def __init__(self, *arg: MessageFilter) -> None:
-        self._filters = list(arg)
-
-    async def process(self, message: MessageLike) -> bool:
-        for f in self._filters:
-            if await f.process(message) is False:
-                return False
-        return True
-
-    def __repr__(self) -> str:
-        return f'{self.__class__.__name__}: {self._filters}'
 
 
 class ForwardFormatFilter(MessageFilter):

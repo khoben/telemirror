@@ -1,57 +1,21 @@
 """
-Parses properties from .env file
+Loads environment(.env)/config.yaml config
 """
-from decouple import config, Csv
+import os
+from dataclasses import dataclass
+
+from decouple import Csv, config
+
+from telemirror.messagefilters import (CompositeMessageFilter,
+                                       EmptyMessageFilter, MessageFilter,
+                                       UrlMessageFilter)
 
 # telegram app id
 API_ID: str = config("API_ID")
 # telegram app hash
 API_HASH: str = config("API_HASH")
-
-
-def cast_mapping(v: str) -> dict:
-    mapping = {}
-
-    if not v:
-        return mapping
-
-    import re
-
-    matches = re.findall(
-        r'\[?((?:-?\d+,?)+):((?:-?\d+,?)+)\]?', v, re.MULTILINE)
-    for match in matches:
-        sources = [int(val) for val in match[0].split(',')]
-        targets = [int(val) for val in match[1].split(',')]
-        for source in sources:
-            mapping.setdefault(source, []).extend(targets)
-    return mapping
-
-
-# channels mapping
-# [source:target1,target2];[source2:...]
-CHAT_MAPPING: dict = config("CHAT_MAPPING", cast=cast_mapping, default="")
-
-if not CHAT_MAPPING:
-    raise Exception("The chat mapping configuration is incorrect. "
-                    "Please provide valid non-empty CHAT_MAPPING environment variable.")
-
-# channels id to mirroring
-SOURCE_CHATS: list = list(CHAT_MAPPING.keys())
-
 # auth session string: can be obtain by run login.py
 SESSION_STRING: str = config("SESSION_STRING")
-
-# remove urls from messages
-REMOVE_URLS: bool = config("REMOVE_URLS", cast=bool, default=False)
-# remove urls whitelist
-REMOVE_URLS_WHITELIST: set = config(
-    "REMOVE_URLS_WL", cast=Csv(post_process=set), default="")
-# remove urls only this URLs
-REMOVE_URLS_LIST: set = config(
-    "REMOVE_URLS_LIST", cast=Csv(post_process=set), default="")
-
-DISABLE_EDIT: bool = config("DISABLE_EDIT", cast=bool, default=False)
-DISABLE_DELETE: bool = config("DISABLE_DELETE", cast=bool, default=False)
 
 USE_MEMORY_DB: bool = config("USE_MEMORY_DB", default=False, cast=bool)
 
@@ -76,3 +40,119 @@ if DB_URL is None:
     DB_URL = f"{DB_PROTOCOL}://{DB_USER}:{DB_PASS}@{DB_HOST}/{DB_NAME}"
 
 LOG_LEVEL: str = config("LOG_LEVEL", default="INFO").upper()
+
+###############Channel mirroring config#################
+
+
+@dataclass
+class Config:
+    disable_delete: bool
+    disable_edit: bool
+    filters: MessageFilter
+    to: list[int]
+
+
+YAML_CONFIG = './mirror.config.yml'
+
+# channels mirror config
+MIRROR_CONFIG: dict[int, Config] = {}
+
+# Load mirror config from config.yml
+# otherwise from .env or environment
+if os.path.exists(YAML_CONFIG):
+
+    from importlib import import_module
+    from types import ModuleType
+    from typing import Optional
+
+    import yaml
+
+    filters_module: ModuleType = import_module('telemirror.messagefilters')
+
+    yaml_config: dict = None
+
+    with open(YAML_CONFIG, encoding="utf8") as file:
+        yaml_config = yaml.load(file, Loader=yaml.FullLoader)
+
+    def build_filters(config_filters: Optional[dict], default: MessageFilter) -> MessageFilter:
+
+        if not config_filters:
+            return default
+
+        filters = []
+        for filter in config_filters:
+            filter_name, filter_args = list(filter.items())[0] if isinstance(
+                filter, dict) else (filter, {})
+            filter_class = getattr(filters_module, filter_name)
+            filters.append(filter_class(**filter_args))
+
+        return CompositeMessageFilter(*filters) if (len(filters) > 1) else filters[0]
+
+    global_disable_delete = yaml_config.get('disable_delete', False)
+    global_disable_edit = yaml_config.get('disable_edit', False)
+    global_filters = build_filters(yaml_config.get(
+        'filters', None), EmptyMessageFilter())
+
+    for direction in yaml_config['directions']:
+        for source in direction['from']:
+            MIRROR_CONFIG[source] = Config(
+                disable_delete=direction.get(
+                    'disable_delete', global_disable_delete),
+                disable_edit=direction.get('disable_edit', global_disable_edit),
+                filters=build_filters(direction.get(
+                    'filters', None), global_filters),
+                to=[direction['to']]
+            )
+
+else:
+
+    def cast_env_chat_mapping(v: str) -> dict[int, list[int]]:
+        mapping = {}
+
+        if not v:
+            return mapping
+
+        import re
+
+        matches = re.findall(
+            r'\[?((?:-?\d+,?)+):((?:-?\d+,?)+)\]?', v, re.MULTILINE)
+        for match in matches:
+            sources = [int(val) for val in match[0].split(',')]
+            targets = [int(val) for val in match[1].split(',')]
+            for source in sources:
+                mapping.setdefault(source, []).extend(targets)
+        return mapping
+
+    CHAT_MAPPING: dict[int, list[int]] = config(
+        "CHAT_MAPPING", cast=cast_env_chat_mapping, default="")
+
+    if not CHAT_MAPPING:
+        raise Exception("The chat mapping configuration is incorrect. "
+                        "Please provide valid non-empty CHAT_MAPPING environment variable.")
+
+    # remove urls from messages
+    REMOVE_URLS: bool = config("REMOVE_URLS", cast=bool, default=False)
+    # remove urls whitelist
+    REMOVE_URLS_WHITELIST: set = config(
+        "REMOVE_URLS_WL", cast=Csv(post_process=set), default="")
+    # remove urls only this URLs
+    REMOVE_URLS_LIST: set = config(
+        "REMOVE_URLS_LIST", cast=Csv(post_process=set), default="")
+
+    DISABLE_EDIT: bool = config("DISABLE_EDIT", cast=bool, default=False)
+    DISABLE_DELETE: bool = config("DISABLE_DELETE", cast=bool, default=False)
+
+    if REMOVE_URLS:
+        message_filter = UrlMessageFilter(
+            blacklist=REMOVE_URLS_LIST, whitelist=REMOVE_URLS_WHITELIST)
+    else:
+        message_filter = EmptyMessageFilter()
+
+    MIRROR_CONFIG = {
+        source_id: Config(
+            disable_delete=DISABLE_DELETE,
+            disable_edit=DISABLE_EDIT,
+            filters=message_filter,
+            to=targets
+        ) for source_id, targets in CHAT_MAPPING.items()
+    }

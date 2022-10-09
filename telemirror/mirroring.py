@@ -6,8 +6,9 @@ from telethon.extensions import markdown
 from telethon.sessions import StringSession
 from telethon.tl import types
 
+from config import Config
+
 from .hints import EventLike, MessageLike
-from .messagefilters import EmptyMessageFilter, MessageFilter
 from .storage import Database, MirrorMessage
 
 
@@ -37,12 +38,14 @@ class EventHandlers:
         incoming_message: MessageLike = event.message
 
         try:
-            outgoing_chats = self._mirror_mapping.get(incoming_chat_id)
+            config = self._mirror_config.get(incoming_chat_id)
+
+            outgoing_chats = config.to
             if not outgoing_chats:
                 self._logger.warning(f'No target chats for {incoming_chat_id}')
                 return
 
-            if await self._message_filter.process(incoming_message) is False:
+            if await config.filters.process(incoming_message) is False:
                 self._logger.info(f'Skipping message {incoming_message_link} by filter')
                 return
 
@@ -92,13 +95,15 @@ class EventHandlers:
         incoming_chat_id: int = event.chat_id
 
         try:
-            outgoing_chats = self._mirror_mapping.get(incoming_chat_id)
+            config = self._mirror_config.get(incoming_chat_id)
+
+            outgoing_chats = config.to
             if not outgoing_chats:
                 self._logger.warning(f'No target chats for {incoming_chat_id}')
                 return
 
             # Apply filters to first non-empty or first message
-            if await self._message_filter.process(next((m for m in incoming_album if m.message), incoming_first_message)) is False:
+            if await config.filters.process(next((m for m in incoming_album if m.message), incoming_first_message)) is False:
                 self._logger.info(f'Skipping album {incoming_message_link} by filter')
                 return
 
@@ -142,11 +147,16 @@ class EventHandlers:
         if event.message.edit_hide is True:
             return
 
-        incoming_message_link: str = self.event_message_link(event)
-        self._logger.info(f'Edit message: {incoming_message_link}')
-
         incoming_message: MessageLike = event.message
         incoming_chat: int = event.chat_id
+
+        config = self._mirror_config.get(incoming_chat)
+
+        if config.disable_edit is True:
+            return
+
+        incoming_message_link: str = self.event_message_link(event)
+        self._logger.info(f'Edit message: {incoming_message_link}')
 
         try:
             outgoing_messages = await self._database.get_messages(incoming_message.id, incoming_chat)
@@ -156,7 +166,7 @@ class EventHandlers:
                 return
 
             if incoming_message.grouped_id is None or incoming_message.message:
-                await self._message_filter.process(incoming_message)
+                await config.filters.process(incoming_message)
 
             for outgoing_message in outgoing_messages:
                 await self.edit_message(
@@ -176,6 +186,9 @@ class EventHandlers:
 
         deleted_ids: List[int] = event.deleted_ids
         incoming_chat: int = event.chat_id
+
+        if self._mirror_config.get(incoming_chat).disable_delete is True:
+            return
 
         self._logger.info(
             f'Delete {len(deleted_ids)} messages from {incoming_chat}')
@@ -219,31 +232,20 @@ class Mirroring(EventHandlers):
 
     def __init__(
         self: 'MirrorTelegramClient',
-        source_chats: List[int],
-        mirror_mapping: Dict[int, List[int]],
+        mirror_config: Dict[int, Config],
         database: Database,
-        message_filter: MessageFilter = EmptyMessageFilter(),
-        disable_edit: bool = False,
-        disable_delete: bool = False,
         logger: Union[str, logging.Logger] = None,
     ) -> None:
         """Configure channels mirroring
 
         Args:
-            source_chats (`List[int]`): Source chats ID list
-            mirror_mapping (`Dict[int, List[int]]`): Mapping dictionary: {source: [target1, target2...]}
-            database (`Database`): Message ID storage
-            message_filter (`MessageFilter`, optional): Message filter. Defaults to `EmptyMessageFilter`.
-            disable_edit (`bool`, optional): Disable mirror message editing. Defaults to `False`.
-            disable_delete (`bool`, optional): Disable mirror message deleting. Defaults to `False`.
+            mirror_config (`Dict[int, List[int]]`): Mapping dictionary: {source: [target1, target2...]}
+            database (`Database`): Message IDs storage
             logger (`str` | `logging.Logger`, optional): Logger. Defaults to None.
         """
-        self._source_chats = source_chats
+        self._mirror_config = mirror_config
+        self._source_chats = list(mirror_config.keys())
         self._database = database
-        self._mirror_mapping = mirror_mapping
-        self._message_filter = message_filter
-        self._disable_edit = disable_edit
-        self._disable_delete = disable_delete
 
         if isinstance(logger, str):
             logger = logging.getLogger(logger)
@@ -253,28 +255,24 @@ class Mirroring(EventHandlers):
         self._logger = logger
 
         self.add_event_handler(self.on_new_message,
-                               events.NewMessage(chats=source_chats))
-        self.add_event_handler(self.on_album, events.Album(chats=source_chats))
+                               events.NewMessage(chats=self._source_chats))
+        self.add_event_handler(self.on_album, events.Album(chats=self._source_chats))
 
-        if not disable_edit:
-            self.add_event_handler(self.on_edit_message,
-                                   events.MessageEdited(chats=source_chats))
+        self.add_event_handler(self.on_edit_message,
+                                   events.MessageEdited(chats=self._source_chats))
 
-        if not disable_delete:
-            self.add_event_handler(self.on_deleted_message,
-                                   events.MessageDeleted(chats=source_chats))
+        self.add_event_handler(self.on_deleted_message,
+                                   events.MessageDeleted(chats=self._source_chats))
 
     def printable_config(self: 'MirrorTelegramClient') -> str:
         """Get printable mirror config"""
 
         mirror_mapping = '\n'.join(
-            [f'{f} -> {", ".join(map(str, to))}' for (f, to) in self._mirror_mapping.items()])
+            [f'{f} -> {", ".join(map(str, to.to))}' for (f, to) in self._mirror_config.items()])
 
         return (
             f'Mirror mapping: \n{ mirror_mapping }\n'
-            f'Message deleting: { "Disabled" if self._disable_delete else "Enabled" }\n'
-            f'Message editing: { "Disabled" if self._disable_edit else "Enabled" }\n'
-            f'Installed message filter: { self._message_filter }\n'
+            f'Mirror config: { self._mirror_config }\n'
             f'Using database: { self._database }\n'
         )
 
