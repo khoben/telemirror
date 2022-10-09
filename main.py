@@ -1,7 +1,7 @@
 import logging
 
 from config import (API_HASH, API_ID, DB_URL, LOG_LEVEL, SESSION_STRING,
-                    USE_MEMORY_DB, MIRROR_CONFIG)
+                    USE_MEMORY_DB, TARGET_CONFIG, CHAT_MAPPING)
 from telemirror.mirroring import MirrorTelegramClient
 from telemirror.storage import Database, InMemoryDatabase, PostgresDatabase
 
@@ -11,7 +11,8 @@ async def init_telemirror(logger: logging.Logger, database: Database):
         SESSION_STRING,
         api_id=API_ID,
         api_hash=API_HASH,
-        mirror_config=MIRROR_CONFIG,
+        chat_mapping=CHAT_MAPPING,
+        target_config=TARGET_CONFIG,
         database=await database.async_init(),
         logger=logger
     ).run()

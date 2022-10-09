@@ -6,11 +6,11 @@
 - Live forwarding and updating messages
 - Flexible mapping of source and target channels/chats (one-to-one, many-to-one, many-to-many)
 - Configurable incoming message filters:
-    - [CompositeMessageFilter](/telemirror/messagefilters.py#L29) - Composite filter that sequentially applies other filters
-    - [SkipUrlFilter](/telemirror/messagefilters.py#L57) - Skip messages with URLs
-    - [UrlMessageFilter](/telemirror/messagefilters.py#L84) - URLs filter
-    - [ForwardFormatFilter](/telemirror/messagefilters.py#L174) - Forward formatting filter
-    - [RestrictSavingContentBypassFilter](/telemirror/messagefilters.py#L145) - `Saving content restriction` filter (not ready, PRs are welcome)
+    - [CompositeMessageFilter](/telemirror/messagefilters.py#L75) - Composite filter that sequentially applies other filters
+    - [SkipUrlFilter](/telemirror/messagefilters.py#L104) - Skip messages with URLs
+    - [UrlMessageFilter](/telemirror/messagefilters.py#L131) - URLs filter
+    - [ForwardFormatFilter](/telemirror/messagefilters.py#L222) - Forward formatting filter
+    - [RestrictSavingContentBypassFilter](/telemirror/messagefilters.py#L193) - `Saving content restriction` filter (not ready, PRs are welcome)
 
 ## Prepare
 0. It's better ***not to use your main account***. Register a new Telegram account
@@ -25,7 +25,7 @@
 
 4. Fill [.env-example](.env-example) with your data and rename it to `.env`
 
-    ❗ Please never push your `.env`/`.yml` files with real crendential to a public repo. Use a separate branch (eg, `heroku-branch`) with `.env`/`.yml` files to push to git-based deployment system like Heroku:
+    ❗ Note: never push your `.env`/`.yml` files with real crendential to a public repo. Use a separate branch (eg, `heroku-branch`) with `.env`/`.yml` files to push to git-based deployment system like Heroku:
 
     ```bash
     git push heroku heroku-branch:master
@@ -104,16 +104,22 @@
     # Mirror directions
     directions:
       - from: [-1001, -1002, -1003]
-        to: -100203
-        # Overwrite global filters
-        filters:
-          - EmptyMessageFilter
-        # Overwrite global settings
-        disable_edit: true
-        disable_delete: true
+        to: [-100203]
 
       - from: [-100226]
-        to: -1006
+        to: [-1006, -1008]
+    
+    # Targets config
+    targets:
+      - id: -1001
+        # Overwrite global settings
+        disable_edit: false
+        disable_delete: false
+        # Overwrite global filters
+        filters:
+          - UrlMessageFilter:
+              blacklist: !!set
+                ? t.me
     ```
     </details>
     <br/>

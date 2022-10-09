@@ -45,17 +45,19 @@ LOG_LEVEL: str = config("LOG_LEVEL", default="INFO").upper()
 
 
 @dataclass
-class Config:
+class TargetConfig:
     disable_delete: bool
     disable_edit: bool
     filters: MessageFilter
-    to: list[int]
 
 
 YAML_CONFIG = './mirror.config.yml'
 
-# channels mirror config
-MIRROR_CONFIG: dict[int, Config] = {}
+# target channels config
+TARGET_CONFIG: dict[int, TargetConfig] = {}
+
+# source and target chats mapping
+CHAT_MAPPING: dict[int, list[int]] = {}
 
 # Load mirror config from config.yml
 # otherwise from .env or environment
@@ -88,21 +90,32 @@ if os.path.exists(YAML_CONFIG):
 
         return CompositeMessageFilter(*filters) if (len(filters) > 1) else filters[0]
 
-    global_disable_delete = yaml_config.get('disable_delete', False)
-    global_disable_edit = yaml_config.get('disable_edit', False)
-    global_filters = build_filters(yaml_config.get(
-        'filters', None), EmptyMessageFilter())
+    global_config = TargetConfig(
+        disable_delete=yaml_config.get('disable_delete', False),
+        disable_edit=yaml_config.get('disable_edit', False),
+        filters=build_filters(yaml_config.get(
+            'filters', None), EmptyMessageFilter())
+    )
 
     for direction in yaml_config['directions']:
-        for source in direction['from']:
-            MIRROR_CONFIG[source] = Config(
-                disable_delete=direction.get(
-                    'disable_delete', global_disable_delete),
-                disable_edit=direction.get('disable_edit', global_disable_edit),
-                filters=build_filters(direction.get(
-                    'filters', None), global_filters),
-                to=[direction['to']]
-            )
+        sources: list[int] = direction['from']
+        targets: list[int] = direction['to']
+
+        for target in targets:
+            TARGET_CONFIG[target] = global_config
+
+        for source in sources:
+            CHAT_MAPPING.setdefault(source, []).extend(targets)
+
+    for target in yaml_config['targets']:
+        TARGET_CONFIG[target.get('id')] = TargetConfig(
+            disable_delete=target.get(
+                'disable_delete', global_config.disable_delete),
+            disable_edit=target.get(
+                'disable_edit', global_config.disable_edit),
+            filters=build_filters(target.get(
+                'filters', None), global_config.filters)
+        )
 
 else:
 
@@ -148,11 +161,12 @@ else:
     else:
         message_filter = EmptyMessageFilter()
 
-    MIRROR_CONFIG = {
-        source_id: Config(
-            disable_delete=DISABLE_DELETE,
-            disable_edit=DISABLE_EDIT,
-            filters=message_filter,
-            to=targets
-        ) for source_id, targets in CHAT_MAPPING.items()
-    }
+    global_config = TargetConfig(
+        disable_delete=DISABLE_DELETE,
+        disable_edit=DISABLE_EDIT,
+        filters=message_filter
+    )
+
+    for _, targets in CHAT_MAPPING.items():
+        for target in targets:
+            TARGET_CONFIG[target] = global_config

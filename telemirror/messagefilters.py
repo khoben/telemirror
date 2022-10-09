@@ -1,5 +1,5 @@
 from abc import abstractmethod
-from typing import List, Optional, Protocol, Set
+from typing import List, Optional, Protocol, Set, Tuple
 
 from telethon import types, utils
 from telethon.extensions import markdown as md
@@ -11,16 +11,65 @@ from .misc.uri import UriGuard
 class MessageFilter(Protocol):
 
     @abstractmethod
-    async def process(self, message: MessageLike) -> bool:
+    async def process(self, message: MessageLike) -> Tuple[bool, MessageLike]:
         """Apply filter to **message**
 
         Args:
             message (`MessageLike`): Source message
 
         Returns:
-            bool: Indicates that the filtered message should be forwarded
+            Tuple[bool, MessageLike]: 
+                Indicates that the filtered message should be forwarded
+
+                Processed message
         """
         raise NotImplementedError
+
+    def copy_message(self, message: MessageLike) -> MessageLike:
+        """Copy **message** via constructor
+
+        Args:
+            message (`MessageLike`): Source message
+
+        Returns:
+            `MessageLike`: Copy of message
+        """
+        copy = types.Message(
+            id = message.id,
+            peer_id = message.peer_id,
+            date = message.date,
+            out = message.out,
+            mentioned = message.mentioned,
+            media_unread = message.media_unread,
+            silent = message.silent,
+            post = message.post,
+            from_id = message.from_id,
+            reply_to = message.reply_to,
+            ttl_period = message.ttl_period,
+            message = message.message,
+            fwd_from = message.fwd_from,
+            via_bot_id = message.via_bot_id,
+            media = message.media,
+            reply_markup = message.reply_markup,
+            entities = message.entities,
+            views = message.views,
+            edit_date = message.edit_date,
+            post_author = message.post_author,
+            grouped_id = message.grouped_id,
+            from_scheduled = message.from_scheduled,
+            legacy = message.legacy,
+            edit_hide = message.edit_hide,
+            pinned = message.pinned,
+            noforwards = message.noforwards,
+            reactions = message.reactions,
+            restriction_reason = message.restriction_reason,
+            forwards = message.forwards,
+            replies = message.replies,
+            action = message.action
+        )
+        copy._chat = message._chat
+        copy._client = message._client
+        return copy
 
     def __repr__(self) -> str:
         return self.__class__.__name__
@@ -37,11 +86,12 @@ class CompositeMessageFilter(MessageFilter):
     def __init__(self, *arg: MessageFilter) -> None:
         self._filters = list(arg)
 
-    async def process(self, message: MessageLike) -> bool:
+    async def process(self, message: MessageLike) -> Tuple[bool, MessageLike]:
         for f in self._filters:
-            if await f.process(message) is False:
-                return False
-        return True
+            cont, message = await f.process(message)
+            if cont is False:
+                return False, message
+        return True, message
 
     def __repr__(self) -> str:
         return f'{self.__class__.__name__}: {self._filters}'
@@ -50,8 +100,8 @@ class CompositeMessageFilter(MessageFilter):
 class EmptyMessageFilter(MessageFilter):
     """Do nothing with message"""
 
-    async def process(self, message: MessageLike) -> bool:
-        return True
+    async def process(self, message: MessageLike) -> Tuple[bool, MessageLike]:
+        return True, message
 
 
 class SkipUrlFilter(MessageFilter):
@@ -68,17 +118,17 @@ class SkipUrlFilter(MessageFilter):
     ) -> None:
         self._skip_mention = skip_mention
 
-    async def process(self, message: MessageLike) -> bool:
+    async def process(self, message: MessageLike) -> Tuple[bool, MessageLike]:
         if message.entities:
             for e in message.entities:
                 if isinstance(e, (types.MessageEntityUrl, types.MessageEntityTextUrl)) or \
                         (isinstance(e, (types.MessageEntityMention, types.MessageEntityMentionName)) and self._skip_mention):
-                    return False
+                    return False, message
 
         if isinstance(message.media, types.MessageMediaWebPage):
-            return False
+            return False, message
 
-        return True
+        return True, message
 
 
 class UrlMessageFilter(MessageFilter):
@@ -111,17 +161,18 @@ class UrlMessageFilter(MessageFilter):
         self._filter_mention = filter_mention
         self._uri_guard = UriGuard(blacklist, whitelist)
 
-    async def process(self, message: MessageLike) -> bool:
+    async def process(self, message: MessageLike) -> Tuple[bool, MessageLike]:
+        filtered_message = self.copy_message(message)
         # Filter message entities
-        if message.entities:
+        if filtered_message.entities:
             good_entities: List[types.TypeMessageEntity] = []
             offset_error = 0
-            for e, entity_text in message.get_entities_text():
+            for e, entity_text in filtered_message.get_entities_text():
                 e.offset += offset_error
                 # Filter URLs and mentions
                 if (isinstance(e, types.MessageEntityUrl) and self._uri_guard.is_should_filtered(entity_text)) \
                         or (isinstance(e, types.MessageEntityMention) and self._filter_mention):
-                    message.message = message.message.replace(
+                    filtered_message.message = filtered_message.message.replace(
                         entity_text, self._placeholder, 1)
                     offset_error += self._placeholder_len - e.length
                     continue
@@ -131,15 +182,15 @@ class UrlMessageFilter(MessageFilter):
                         (isinstance(e, types.MessageEntityMentionName) and self._filter_mention)):
                     good_entities.append(e)
 
-            message.entities = good_entities
+            filtered_message.entities = good_entities
 
         # Filter link preview
-        if isinstance(message.media, types.MessageMediaWebPage) and \
-            isinstance(message.media.webpage, types.WebPage) and \
-                self._uri_guard.is_should_filtered(message.media.webpage.url):
-            message.media = None
+        if isinstance(filtered_message.media, types.MessageMediaWebPage) and \
+            isinstance(filtered_message.media.webpage, types.WebPage) and \
+                self._uri_guard.is_should_filtered(filtered_message.media.webpage.url):
+            filtered_message.media = None
 
-        return True
+        return True, filtered_message
 
 
 class RestrictSavingContentBypassFilter(MessageFilter):
@@ -167,7 +218,7 @@ class RestrictSavingContentBypassFilter(MessageFilter):
     ```
     """
 
-    async def process(self, message: MessageLike) -> MessageLike:
+    async def process(self, message: MessageLike) -> Tuple[bool, MessageLike]:
         raise NotImplementedError
 
 
@@ -193,9 +244,11 @@ class ForwardFormatFilter(MessageFilter):
     def __init__(self, format: str = DEFAULT_FORMAT) -> None:
         self._format = format
 
-    async def process(self, message: MessageLike) -> bool:
+    async def process(self, message: MessageLike) -> Tuple[bool, MessageLike]:
         message_link: Optional[str] = self._message_link(message)
         channel_name: str = utils.get_display_name(message.chat)
+
+        filtered_message = self.copy_message(message)
 
         if channel_name and message_link:
 
@@ -209,8 +262,8 @@ class ForwardFormatFilter(MessageFilter):
 
             message_offset = pre_formatted_text.find(self.MESSAGE_PLACEHOLDER)
 
-            if message.entities:
-                for e in message.entities:
+            if filtered_message.entities:
+                for e in filtered_message.entities:
                     e.offset += message_offset
 
             if pre_formatted_entities:
@@ -220,15 +273,15 @@ class ForwardFormatFilter(MessageFilter):
                     if e.offset > message_offset:
                         e.offset += message_placeholder_length_diff
 
-                if message.entities:
-                    message.entities.extend(pre_formatted_entities)
+                if filtered_message.entities:
+                    filtered_message.entities.extend(pre_formatted_entities)
                 else:
-                    message.entities = pre_formatted_entities
+                    filtered_message.entities = pre_formatted_entities
 
-            message.message = pre_formatted_text.format(
-                message_text=message.message)
+            filtered_message.message = pre_formatted_text.format(
+                message_text=filtered_message.message)
 
-        return True
+        return True, filtered_message
 
     def _message_link(self, message: MessageLike) -> Optional[str]:
         """Get link to message from origin channel"""
