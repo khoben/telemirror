@@ -86,8 +86,8 @@
     <summary><b>mirror.config.yml</b> overview</summary>
 
     ```yaml
-    # Global filters, will be applied in order
-    filters: 
+    # (Optional) Global filters, will be applied in order
+    filters:
       - ForwardFormatFilter: # Filter name under telemirror/messagefilters.py
           format: ""           # Filters arguments
       - EmptyMessageFilter
@@ -97,11 +97,11 @@
       - SkipUrlFilter:
           skip_mention: false
 
-    # Global settings
+    # (Optional) Global settings
     disable_edit: true
     disable_delete: true
 
-    # Mirror directions
+    # (Required) Mirror directions
     directions:
       - from: [-1001, -1002, -1003]
         to: [-100203]
@@ -109,7 +109,7 @@
       - from: [-100226]
         to: [-1006, -1008]
     
-    # Targets config
+    # (Optional) Targets config
     targets:
       - id: -1001
         # Overwrite global settings

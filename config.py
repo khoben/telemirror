@@ -107,7 +107,7 @@ if os.path.exists(YAML_CONFIG):
         for source in sources:
             CHAT_MAPPING.setdefault(source, []).extend(targets)
 
-    for target in yaml_config['targets']:
+    for target in yaml_config.get('targets', []):
         TARGET_CONFIG[target.get('id')] = TargetConfig(
             disable_delete=target.get(
                 'disable_delete', global_config.disable_delete),
