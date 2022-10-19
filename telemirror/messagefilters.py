@@ -5,6 +5,7 @@ from telethon import types, utils
 from telethon.extensions import markdown as md
 
 from .hints import EventMessage
+from .misc.message import CopyMessage, MessageLink
 from .misc.uri import UriGuard
 
 
@@ -25,54 +26,15 @@ class MessageFilter(Protocol):
         """
         raise NotImplementedError
 
-    def copy_message(self, message: MessageLike) -> MessageLike:
-        """Copy **message** via constructor
-
-        Args:
-            message (`MessageLike`): Source message
-
-        Returns:
-            `MessageLike`: Copy of message
-        """
-        copy = types.Message(
-            id = message.id,
-            peer_id = message.peer_id,
-            date = message.date,
-            out = message.out,
-            mentioned = message.mentioned,
-            media_unread = message.media_unread,
-            silent = message.silent,
-            post = message.post,
-            from_id = message.from_id,
-            reply_to = message.reply_to,
-            ttl_period = message.ttl_period,
-            message = message.message,
-            fwd_from = message.fwd_from,
-            via_bot_id = message.via_bot_id,
-            media = message.media,
-            reply_markup = message.reply_markup,
-            entities = message.entities,
-            views = message.views,
-            edit_date = message.edit_date,
-            post_author = message.post_author,
-            grouped_id = message.grouped_id,
-            from_scheduled = message.from_scheduled,
-            legacy = message.legacy,
-            edit_hide = message.edit_hide,
-            pinned = message.pinned,
-            noforwards = message.noforwards,
-            reactions = message.reactions,
-            restriction_reason = message.restriction_reason,
-            forwards = message.forwards,
-            replies = message.replies,
-            action = message.action
-        )
-        copy._chat = message._chat
-        copy._client = message._client
-        return copy
-
     def __repr__(self) -> str:
         return self.__class__.__name__
+
+
+class EmptyMessageFilter(MessageFilter):
+    """Do nothing with message"""
+
+    async def process(self, message: EventMessage) -> Tuple[bool, EventMessage]:
+        return True, message
 
 
 class CompositeMessageFilter(MessageFilter):
@@ -95,13 +57,6 @@ class CompositeMessageFilter(MessageFilter):
 
     def __repr__(self) -> str:
         return f'{self.__class__.__name__}: {self._filters}'
-
-
-class EmptyMessageFilter(MessageFilter):
-    """Do nothing with message"""
-
-    async def process(self, message: MessageLike) -> Tuple[bool, MessageLike]:
-        return True, message
 
 
 class SkipUrlFilter(MessageFilter):
@@ -131,7 +86,7 @@ class SkipUrlFilter(MessageFilter):
         return True, message
 
 
-class UrlMessageFilter(MessageFilter):
+class UrlMessageFilter(CopyMessage, MessageFilter):
     """URLs message filter
 
     Args:
@@ -193,36 +148,7 @@ class UrlMessageFilter(MessageFilter):
         return True, filtered_message
 
 
-class RestrictSavingContentBypassFilter(MessageFilter):
-    """Filter that bypasses `saving content restriction`
-
-    Sample implementation:
-    Download the media, upload it to the Telegram servers,
-    and then change to the new uploaded media:
-
-    ```
-    if not message.media or not message.chat.noforwards:
-        return message
-
-    # Handle photos
-    if isinstance(message.media, types.MessageMediaPhoto):
-        client: TelegramClient = message.client
-        photo: bytes = client.download_media(message=message, file=bytes)
-        cloned_photo: types.TypeInputFile = client.upload_file(photo)
-        message.media = cloned_photo
-
-    # Others types...
-
-    return message
-
-    ```
-    """
-
-    async def process(self, message: MessageLike) -> Tuple[bool, MessageLike]:
-        raise NotImplementedError
-
-
-class ForwardFormatFilter(MessageFilter):
+class ForwardFormatFilter(MessageLink, CopyMessage, MessageFilter):
     """Filter that adds a forwarding formatting (markdown supported): 
 
     Example:
@@ -245,7 +171,7 @@ class ForwardFormatFilter(MessageFilter):
         self._format = format
 
     async def process(self, message: EventMessage) -> Tuple[bool, EventMessage]:
-        message_link: Optional[str] = self._message_link(message)
+        message_link: Optional[str] = self.message_link(message)
         channel_name: str = utils.get_display_name(message.chat)
 
         filtered_message = self.copy_message(message)
@@ -283,12 +209,31 @@ class ForwardFormatFilter(MessageFilter):
 
         return True, filtered_message
 
-    def _message_link(self, message: MessageLike) -> Optional[str]:
-        """Get link to message from origin channel"""
-        if not isinstance(message.peer_id, types.PeerUser):
-            if hasattr(message.chat, "username") and message.chat.username:
-                link = f"https://t.me/{message.chat.username}/{message.id}"
-            else:
-                link = f"https://t.me/c/{message.chat.id}/{message.id}"
-            return link
-        return None
+
+class RestrictSavingContentBypassFilter(MessageFilter):
+    """Filter that bypasses `saving content restriction`
+
+    Sample implementation:
+    Download the media, upload it to the Telegram servers,
+    and then change to the new uploaded media:
+
+    ```
+    if not message.media or not message.chat.noforwards:
+        return message
+
+    # Handle photos
+    if isinstance(message.media, types.MessageMediaPhoto):
+        client: TelegramClient = message.client
+        photo: bytes = client.download_media(message=message, file=bytes)
+        cloned_photo: types.TypeInputFile = client.upload_file(photo)
+        message.media = cloned_photo
+
+    # Others types...
+
+    return message
+
+    ```
+    """
+
+    async def process(self, message: EventMessage) -> Tuple[bool, EventMessage]:
+        raise NotImplementedError
