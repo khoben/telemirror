@@ -228,7 +228,7 @@ class KeywordReplaceFilter(CopyMessage, MessageFilter):
 
         if unparsed_text:
             for k, v in self._keywords.items():
-                unparsed_text = re.sub(k, v, unparsed_text)
+                unparsed_text = re.sub(k, v, unparsed_text, flags=re.IGNORECASE)
 
             filtered_message.text = unparsed_text
 
