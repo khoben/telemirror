@@ -1,3 +1,4 @@
+import re
 from abc import abstractmethod
 from typing import List, Optional, Protocol, Set, Tuple
 
@@ -206,6 +207,30 @@ class ForwardFormatFilter(MessageLink, CopyMessage, MessageFilter):
 
             filtered_message.message = pre_formatted_text.format(
                 message_text=filtered_message.message)
+
+        return True, filtered_message
+
+
+class KeywordReplaceFilter(CopyMessage, MessageFilter):
+    """Filter that replaces keywords
+
+    Args:
+        keywords (dict[str, str]): Keywords map
+    """
+
+    def __init__(self, keywords: dict[str, str]) -> None:
+        self._keywords = {f'\\b{k}\\b': v for k, v in keywords.items()}
+
+    async def process(self, message: EventMessage) -> Tuple[bool, EventMessage]:
+        filtered_message = self.copy_message(message)
+
+        unparsed_text = filtered_message.text
+
+        if unparsed_text:
+            for k, v in self._keywords.items():
+                unparsed_text = re.sub(k, v, unparsed_text)
+
+            filtered_message.text = unparsed_text
 
         return True, filtered_message
 

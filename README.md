@@ -6,11 +6,12 @@
 - Live forwarding and updating messages
 - Flexible mapping of source and target channels/chats (one-to-one, many-to-one, many-to-many)
 - Configurable incoming message filters:
-    - [CompositeMessageFilter](/telemirror/messagefilters.py#L75) - Composite filter that sequentially applies other filters
-    - [SkipUrlFilter](/telemirror/messagefilters.py#L104) - Skip messages with URLs
-    - [UrlMessageFilter](/telemirror/messagefilters.py#L131) - URLs filter
-    - [ForwardFormatFilter](/telemirror/messagefilters.py#L222) - Forward formatting filter
-    - [RestrictSavingContentBypassFilter](/telemirror/messagefilters.py#L193) - `Saving content restriction` filter (not ready, PRs are welcome)
+    - [CompositeMessageFilter](/telemirror/messagefilters.py#L41) - Composite filter that sequentially applies other filters
+    - [SkipUrlFilter](/telemirror/messagefilters.py#L63) - Skip messages with URLs
+    - [UrlMessageFilter](/telemirror/messagefilters.py#L90) - URLs filter
+    - [ForwardFormatFilter](/telemirror/messagefilters.py#L152) - Forward formatting filter
+    - [KeywordReplaceFilter](/telemirror/messagefilters.py#L214) - Keyword replacing filter
+    - [RestrictSavingContentBypassFilter](/telemirror/messagefilters.py#L238) - `Saving content restriction` filter (not ready, PRs are welcome)
 
 ## Prepare
 0. It's better ***not to use your main account***. Register a new Telegram account
