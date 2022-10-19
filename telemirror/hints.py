@@ -1,5 +1,5 @@
 from typing import Union
-from telethon import events, custom
+from telethon import events, tl
 
 EventLike = Union[
     events.NewMessage.Event,
@@ -8,4 +8,4 @@ EventLike = Union[
     events.MessageDeleted.Event
 ]
 
-MessageLike = custom.Message
+EventMessage = tl.patched.Message

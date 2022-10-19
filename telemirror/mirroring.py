@@ -7,7 +7,7 @@ from telethon.extensions import markdown
 from telethon.sessions import StringSession
 from telethon.tl import types
 
-from .hints import EventLike, MessageLike
+from .hints import EventLike, EventMessage
 from .storage import Database, MirrorMessage
 
 
@@ -34,7 +34,7 @@ class EventHandlers:
         self._logger.info(f'New message: {incoming_message_link}')
 
         incoming_chat_id: int = event.chat_id
-        incoming_message: MessageLike = event.message
+        incoming_message: EventMessage = event.message
 
         try:
             outgoing_chats = self._chat_mapping.get(incoming_chat_id)
@@ -92,8 +92,8 @@ class EventHandlers:
         incoming_message_link: str = self.event_message_link(event)
         self._logger.info(f'New album: {incoming_message_link}')
 
-        incoming_album: List[MessageLike] = event.messages
-        incoming_first_message: MessageLike = incoming_album[0]
+        incoming_album: List[EventMessage] = event.messages
+        incoming_first_message: EventMessage = incoming_album[0]
         incoming_chat_id: int = event.chat_id
 
         try:
@@ -112,7 +112,7 @@ class EventHandlers:
 
                 proceed = True
                 filtered = False
-                filtered_album: list[MessageLike] = []
+                filtered_album: list[EventMessage] = []
 
                 for m in incoming_album:
                     if m.message and not filtered:
@@ -167,7 +167,7 @@ class EventHandlers:
         if event.message.edit_hide is True:
             return
 
-        incoming_message: MessageLike = event.message
+        incoming_message: EventMessage = event.message
         incoming_chat: int = event.chat_id
         incoming_message_link: str = self.event_message_link(event)
 

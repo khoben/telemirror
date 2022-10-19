@@ -4,21 +4,21 @@ from typing import List, Optional, Protocol, Set, Tuple
 from telethon import types, utils
 from telethon.extensions import markdown as md
 
-from .hints import MessageLike
+from .hints import EventMessage
 from .misc.uri import UriGuard
 
 
 class MessageFilter(Protocol):
 
     @abstractmethod
-    async def process(self, message: MessageLike) -> Tuple[bool, MessageLike]:
+    async def process(self, message: EventMessage) -> Tuple[bool, EventMessage]:
         """Apply filter to **message**
 
         Args:
-            message (`MessageLike`): Source message
+            message (`EventMessage`): Source message
 
         Returns:
-            Tuple[bool, MessageLike]: 
+            Tuple[bool, EventMessage]: 
                 Indicates that the filtered message should be forwarded
 
                 Processed message
@@ -86,7 +86,7 @@ class CompositeMessageFilter(MessageFilter):
     def __init__(self, *arg: MessageFilter) -> None:
         self._filters = list(arg)
 
-    async def process(self, message: MessageLike) -> Tuple[bool, MessageLike]:
+    async def process(self, message: EventMessage) -> Tuple[bool, EventMessage]:
         for f in self._filters:
             cont, message = await f.process(message)
             if cont is False:
@@ -118,7 +118,7 @@ class SkipUrlFilter(MessageFilter):
     ) -> None:
         self._skip_mention = skip_mention
 
-    async def process(self, message: MessageLike) -> Tuple[bool, MessageLike]:
+    async def process(self, message: EventMessage) -> Tuple[bool, EventMessage]:
         if message.entities:
             for e in message.entities:
                 if isinstance(e, (types.MessageEntityUrl, types.MessageEntityTextUrl)) or \
@@ -161,7 +161,7 @@ class UrlMessageFilter(MessageFilter):
         self._filter_mention = filter_mention
         self._uri_guard = UriGuard(blacklist, whitelist)
 
-    async def process(self, message: MessageLike) -> Tuple[bool, MessageLike]:
+    async def process(self, message: EventMessage) -> Tuple[bool, EventMessage]:
         filtered_message = self.copy_message(message)
         # Filter message entities
         if filtered_message.entities:
@@ -244,7 +244,7 @@ class ForwardFormatFilter(MessageFilter):
     def __init__(self, format: str = DEFAULT_FORMAT) -> None:
         self._format = format
 
-    async def process(self, message: MessageLike) -> Tuple[bool, MessageLike]:
+    async def process(self, message: EventMessage) -> Tuple[bool, EventMessage]:
         message_link: Optional[str] = self._message_link(message)
         channel_name: str = utils.get_display_name(message.chat)
 
