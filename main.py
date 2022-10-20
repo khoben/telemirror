@@ -1,19 +1,26 @@
 import logging
 
-from config import (API_HASH, API_ID, DB_URL, LOG_LEVEL, SESSION_STRING,
-                    USE_MEMORY_DB, TARGET_CONFIG, CHAT_MAPPING)
+from config import (API_HASH, API_ID, CHAT_MAPPING, DB_URL, LOG_LEVEL,
+                    SESSION_STRING, TARGET_CONFIG,
+                    USE_MEMORY_DB)
+from custom import UserCommentFormatFilter, KEY_COMMENT
 from telemirror.mirroring import MirrorTelegramClient
 from telemirror.storage import Database, InMemoryDatabase, PostgresDatabase
 
 
 async def init_telemirror(logger: logging.Logger, database: Database):
+    
+    await database.async_init()
+
+    TARGET_CONFIG[KEY_COMMENT].filters = UserCommentFormatFilter(database)
+
     await MirrorTelegramClient(
         SESSION_STRING,
         api_id=API_ID,
         api_hash=API_HASH,
         chat_mapping=CHAT_MAPPING,
         target_config=TARGET_CONFIG,
-        database=await database.async_init(),
+        database=database,
         logger=logger
     ).run()
 

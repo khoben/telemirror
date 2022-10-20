@@ -1,14 +1,13 @@
 """
-Loads environment(.env)/config.yaml config
+Loads environment(.env) config
 """
-import os
 from dataclasses import dataclass
 
 from decouple import Csv, config
 
 from telemirror.messagefilters import (CompositeMessageFilter,
-                                       EmptyMessageFilter, MessageFilter,
-                                       UrlMessageFilter)
+                                       EmptyMessageFilter,
+                                       KeywordReplaceFilter, MessageFilter)
 
 # telegram app id
 API_ID: str = config("API_ID")
@@ -50,123 +49,70 @@ class TargetConfig:
     disable_edit: bool
     filters: MessageFilter
 
-
-YAML_CONFIG = './mirror.config.yml'
-
 # target channels config
 TARGET_CONFIG: dict[int, TargetConfig] = {}
 
 # source and target chats mapping
 CHAT_MAPPING: dict[int, list[int]] = {}
 
-# Load mirror config from config.yml
-# otherwise from .env or environment
-if os.path.exists(YAML_CONFIG):
+SOURCE_CHATS: list[int] = config("SOURCE_CHATS", cast=Csv(cast=int, post_process=list))
+TARGET_CHANNEL: int = config("TARGET_CHANNEL", cast=int)
 
-    from importlib import import_module
-    from types import ModuleType
-    from typing import Optional
+for source in SOURCE_CHATS:
+    CHAT_MAPPING[source] = [TARGET_CHANNEL]
 
-    import yaml
+DISABLE_EDIT: bool = config("DISABLE_EDIT", cast=bool, default=False)
+DISABLE_DELETE: bool = config("DISABLE_DELETE", cast=bool, default=False)
 
-    filters_module: ModuleType = import_module('telemirror.messagefilters')
+def cast_env_keyword_replace(v: str) -> dict[str, str]:
+    mapping = {}
 
-    yaml_config: dict = None
-
-    with open(YAML_CONFIG, encoding="utf8") as file:
-        yaml_config = yaml.load(file, Loader=yaml.FullLoader)
-
-    def build_filters(config_filters: Optional[dict], default: MessageFilter) -> MessageFilter:
-
-        if not config_filters:
-            return default
-
-        filters = []
-        for filter in config_filters:
-            filter_name, filter_args = list(filter.items())[0] if isinstance(
-                filter, dict) else (filter, {})
-            filter_class = getattr(filters_module, filter_name)
-            filters.append(filter_class(**filter_args))
-
-        return CompositeMessageFilter(*filters) if (len(filters) > 1) else filters[0]
-
-    global_config = TargetConfig(
-        disable_delete=yaml_config.get('disable_delete', False),
-        disable_edit=yaml_config.get('disable_edit', False),
-        filters=build_filters(yaml_config.get(
-            'filters', None), EmptyMessageFilter())
-    )
-
-    for direction in yaml_config['directions']:
-        sources: list[int] = direction['from']
-        targets: list[int] = direction['to']
-
-        for target in targets:
-            TARGET_CONFIG[target] = global_config
-
-        for source in sources:
-            CHAT_MAPPING.setdefault(source, []).extend(targets)
-
-    for target in yaml_config.get('targets', []):
-        TARGET_CONFIG[target.get('id')] = TargetConfig(
-            disable_delete=target.get(
-                'disable_delete', global_config.disable_delete),
-            disable_edit=target.get(
-                'disable_edit', global_config.disable_edit),
-            filters=build_filters(target.get(
-                'filters', None), global_config.filters)
-        )
-
-else:
-
-    def cast_env_chat_mapping(v: str) -> dict[int, list[int]]:
-        mapping = {}
-
-        if not v:
-            return mapping
-
-        import re
-
-        matches = re.findall(
-            r'\[?((?:-?\d+,?)+):((?:-?\d+,?)+)\]?', v, re.MULTILINE)
-        for match in matches:
-            sources = [int(val) for val in match[0].split(',')]
-            targets = [int(val) for val in match[1].split(',')]
-            for source in sources:
-                mapping.setdefault(source, []).extend(targets)
+    if not v:
         return mapping
 
-    CHAT_MAPPING: dict[int, list[int]] = config(
-        "CHAT_MAPPING", cast=cast_env_chat_mapping, default="")
+    import re
 
-    if not CHAT_MAPPING:
-        raise Exception("The chat mapping configuration is incorrect. "
-                        "Please provide valid non-empty CHAT_MAPPING environment variable.")
+    matches = re.findall(r'(\w+):(\w+)', v, re.MULTILINE)
+    for match in matches:
+        mapping[match[0]] = match[1]
+    return mapping
 
-    # remove urls from messages
-    REMOVE_URLS: bool = config("REMOVE_URLS", cast=bool, default=False)
-    # remove urls whitelist
-    REMOVE_URLS_WHITELIST: set = config(
-        "REMOVE_URLS_WL", cast=Csv(post_process=set), default="")
-    # remove urls only this URLs
-    REMOVE_URLS_LIST: set = config(
-        "REMOVE_URLS_LIST", cast=Csv(post_process=set), default="")
+ENABLE_KEYWORD_REPLACE: bool = config(
+    "KEYWORD_REPLACE_ENABLE", cast=bool, default=True)
+KEYWORD_REPLACE_MAP: dict[str, str] = config(
+    "KEYWORD_REPLACE_MAP", cast=cast_env_keyword_replace, default="")
 
-    DISABLE_EDIT: bool = config("DISABLE_EDIT", cast=bool, default=False)
-    DISABLE_DELETE: bool = config("DISABLE_DELETE", cast=bool, default=False)
+from custom import AllowChannelPostFilter, BottomLinkFilter
 
-    if REMOVE_URLS:
-        message_filter = UrlMessageFilter(
-            blacklist=REMOVE_URLS_LIST, whitelist=REMOVE_URLS_WHITELIST)
-    else:
-        message_filter = EmptyMessageFilter()
+filters = [AllowChannelPostFilter()]
 
-    global_config = TargetConfig(
-        disable_delete=DISABLE_DELETE,
-        disable_edit=DISABLE_EDIT,
-        filters=message_filter
-    )
+if ENABLE_KEYWORD_REPLACE:
+    filters.append(KeywordReplaceFilter(KEYWORD_REPLACE_MAP))
 
-    for _, targets in CHAT_MAPPING.items():
-        for target in targets:
-            TARGET_CONFIG[target] = global_config
+ENABLE_BOTTOM_LINK: bool = config(
+    "BOTTOM_LINK_ENABLE", cast=bool, default=True)
+BOTTOM_LINK_DISPLAY_NAME: str = config(
+    "BOTTOM_LINK_DISPLAY_NAME", default='Link')
+
+if ENABLE_BOTTOM_LINK:
+    filters.append(BottomLinkFilter('{message_text}\n\n[{link_display_name}]({message_link})'.format(
+        link_display_name=BOTTOM_LINK_DISPLAY_NAME,
+        message_text='{message_text}',
+        message_link='{message_link}'
+    )))
+
+channel_filter = CompositeMessageFilter(
+    *filters) if (len(filters) > 1) else filters[0]
+
+from custom import KEY_COMMENT, KEY_POST
+
+TARGET_CONFIG[KEY_POST] = TargetConfig(
+    disable_delete=DISABLE_DELETE,
+    disable_edit=DISABLE_EDIT,
+    filters=channel_filter
+)
+TARGET_CONFIG[KEY_COMMENT] = TargetConfig(
+    disable_delete=DISABLE_DELETE,
+    disable_edit=DISABLE_EDIT,
+    filters=EmptyMessageFilter()
+)
