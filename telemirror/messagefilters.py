@@ -6,7 +6,7 @@ from telethon import types, utils
 from telethon.extensions import markdown as md
 
 from .hints import EventMessage
-from .misc.message import CopyMessage, MessageLink
+from .misc.message import ChannelName, CopyMessage, MessageLink
 from .misc.uri import UriGuard
 
 
@@ -149,7 +149,7 @@ class UrlMessageFilter(CopyMessage, MessageFilter):
         return True, filtered_message
 
 
-class ForwardFormatFilter(MessageLink, CopyMessage, MessageFilter):
+class ForwardFormatFilter(ChannelName, MessageLink, CopyMessage, MessageFilter):
     """Filter that adds a forwarding formatting (markdown supported): 
 
     Example:
@@ -173,7 +173,7 @@ class ForwardFormatFilter(MessageLink, CopyMessage, MessageFilter):
 
     async def process(self, message: EventMessage) -> Tuple[bool, EventMessage]:
         message_link: Optional[str] = self.message_link(message)
-        channel_name: str = utils.get_display_name(message.chat)
+        channel_name: str = self.channel_name(message)
 
         filtered_message = self.copy_message(message)
 

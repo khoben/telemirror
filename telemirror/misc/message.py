@@ -1,8 +1,14 @@
 from typing import Optional
 
-from telethon import types
+from telethon import types, utils
 
 from ..hints import EventMessage
+
+
+class ChannelName:
+
+    def channel_name(self, message: EventMessage) -> Optional[str]:
+        return utils.get_display_name(message.chat)
 
 
 class MessageLink:

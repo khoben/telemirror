@@ -1,11 +1,54 @@
-from typing import Optional, Tuple, Union
 import re
+from typing import Optional, Tuple, Union
 
 from telemirror.hints import EventMessage
-from telemirror.messagefilters import MessageFilter
+from telemirror.messagefilters import ForwardFormatFilter, MessageFilter
 from telemirror.misc.message import MessageLink
 from telemirror.storage import Database, MirrorMessage
 from telethon import types, utils
+
+
+class Target:
+    def __init__(self, v: str) -> None:
+        assert v.startswith('(')
+        assert v.endswith(')')
+
+        values = v[1:-1].split('|')
+
+        assert len(values) == 1 or len(values) == 2
+
+        self.channel, self.comments = -1, None
+
+        if len(values) == 2:
+            self.channel, self.comments = int(values[0]), int(values[1])
+        else:
+            self.channel = int(values[0])
+
+    def __repr__(self) -> str:
+        return f'Target(channel={self.channel}, comments={self.comments})'
+
+
+class Source:
+    def __init__(self, v: str) -> None:
+        assert v.startswith('(')
+        assert v.endswith(')')
+
+        values = v[1:-1].split('|')
+
+        assert len(values) == 2 or len(values) == 3
+
+        self.channel, self.title, self.comments = -1, '', None
+
+        if len(values) == 3:
+            self.channel, self.title, self.comments = int(
+                values[0]), values[1], int(values[2])
+        else:
+            self.channel, self.title = int(values[0]), values[1]
+
+        self.title = self.title[1:-1]
+
+    def __repr__(self) -> str:
+        return f'Source(channel={self.channel}, title={self.title}, comments={self.comments})'
 
 
 class SkipAll(MessageFilter):
@@ -33,8 +76,8 @@ class LinkedChatFilter(MessageFilter):
     """Linked chat filter that react to channel posts and replies to them
     """
 
-    def __init__(self, database: Database) -> None:
-        self._database = database
+    def install_db(self, db: Database) -> None:
+        self._database = db
 
     async def process(self, message: EventMessage) -> Tuple[bool, EventMessage]:
 
@@ -107,6 +150,21 @@ class UserCommentFormatFilter(MessageLink, MessageFilter):
                     name = 'Channel'
 
             if message_link:
-                message.text = f'Comment from [{name}]({message_link}):\n\n{message.text}'
+                message.text = f'[{name} say]({message_link}):\n{message.text}'
 
         return True, message
+
+
+class MappedChannelName:
+
+    def __init__(self, mapped: dict[int, str]) -> None:
+        self.__mapped = mapped
+
+    def channel_name(self, message: EventMessage) -> Optional[str]:
+        return self.__mapped.get(message.chat_id, utils.get_display_name(message.chat))
+
+
+class MappedNameForwardFormat(MappedChannelName, ForwardFormatFilter):
+    def __init__(self, mapped: dict[int, str], format: str) -> None:
+        MappedChannelName.__init__(self, mapped)
+        ForwardFormatFilter.__init__(self, format)

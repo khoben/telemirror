@@ -5,9 +5,11 @@ from dataclasses import dataclass
 
 from decouple import Csv, config
 
-from custom import SkipForKeywords
-from telemirror.messagefilters import (CompositeMessageFilter, EmptyMessageFilter, ForwardFormatFilter,
+from custom import (LinkedChatFilter, MappedNameForwardFormat, SkipAll,
+                    SkipForKeywords, Source, Target, UserCommentFormatFilter)
+from telemirror.messagefilters import (CompositeMessageFilter,
                                        KeywordReplaceFilter, MessageFilter)
+from telemirror.storage import Database
 
 # telegram app id
 API_ID: str = config("API_ID")
@@ -49,28 +51,44 @@ class TargetConfig:
     disable_edit: bool
     filters: MessageFilter
 
+
 # target channels config
 TARGET_CONFIG: dict[int, TargetConfig] = {}
 
 # source and target chats mapping
 CHAT_MAPPING: dict[int, list[int]] = {}
 
-_SOURCE_CHATS: list[int] = config("SOURCE_CHATS", cast=Csv(cast=int, post_process=list))
 
-SOURCE_CHATS: list[int] = [c + 1000000000000 if c + 2000000000000 < 0 else c for c in _SOURCE_CHATS]
+def cast_env_chat_mapping(v: str) -> dict[int, list[int]]:
+    mapping = {}
 
-TARGET_CHANNEL: int = config("TARGET_CHANNEL", cast=int)
-TARGET_COMMENT_CHAT: int = config("TARGET_COMMENT_CHAT", cast=int)
+    if not v:
+        return mapping
 
-for source in _SOURCE_CHATS:
-    if source + 2000000000000 < 0:
-        CHAT_MAPPING[source + 1000000000000] = [TARGET_COMMENT_CHAT]
-    else:
-        CHAT_MAPPING[source] = [TARGET_CHANNEL]
+    import re
+
+    matches = re.findall(
+        r'\[?((?:\(-?\d+\|\".+\"\|?(?:-?\d+)?\),?)+):((?:\(-?\d+\|?(?:-?\d+)\),?)+)\]?', v, re.MULTILINE)
+    for match in matches:
+        sources = [Source(val) for val in match[0].split(',')]
+        targets = [Target(val) for val in match[1].split(',')]
+        for source in sources:
+            mapping.setdefault(source, []).extend(targets)
+    return mapping
+
+
+_CHAT_MAPPING: dict[Source, list[Target]] = config(
+    "CHAT_MAPPING", cast=cast_env_chat_mapping)
+
+if not _CHAT_MAPPING:
+    raise Exception("The chat mapping configuration is incorrect. "
+                    "Please provide valid non-empty CHAT_MAPPING environment variable.")
 
 DISABLE_EDIT: bool = config("DISABLE_EDIT", cast=bool, default=False)
 DISABLE_DELETE: bool = config("DISABLE_DELETE", cast=bool, default=False)
-DISABLE_COMMENT_CLONE: bool = config("DISABLE_COMMENT_CLONE", cast=bool, default=False)
+DISABLE_COMMENT_CLONE: bool = config(
+    "DISABLE_COMMENT_CLONE", cast=bool, default=False)
+
 
 def cast_env_keyword_replace(v: str) -> dict[str, str]:
     mapping = {}
@@ -84,6 +102,7 @@ def cast_env_keyword_replace(v: str) -> dict[str, str]:
     for match in matches:
         mapping[match[0]] = match[1]
     return mapping
+
 
 filters = []
 
@@ -99,18 +118,39 @@ KEYWORD_REPLACE_MAP: dict[str, str] = config(
 if KEYWORD_REPLACE_MAP:
     filters.append(KeywordReplaceFilter(KEYWORD_REPLACE_MAP))
 
-filters.append(ForwardFormatFilter("{message_text}\n=======\nMsg from: [{channel_name}]({message_link})"))
+filters.append(MappedNameForwardFormat(mapped={k.channel: k.title for k in _CHAT_MAPPING.keys(
+)}, format="{message_text}\n=======\nMsg from: [{channel_name}]({message_link})"))
 
 channel_filter = CompositeMessageFilter(
     *filters) if (len(filters) > 1) else filters[0]
 
-TARGET_CONFIG[TARGET_CHANNEL] = TargetConfig(
+linked_chat_filter = LinkedChatFilter()
+
+
+def init_filters_with_db(db: Database) -> None:
+    linked_chat_filter.install_db(db)
+
+
+channel_config = TargetConfig(
     disable_delete=DISABLE_DELETE,
     disable_edit=DISABLE_EDIT,
     filters=channel_filter
 )
-TARGET_CONFIG[TARGET_COMMENT_CHAT] = TargetConfig(
+comments_config = TargetConfig(
     disable_delete=DISABLE_DELETE,
     disable_edit=DISABLE_EDIT,
-    filters=EmptyMessageFilter()
+    filters=CompositeMessageFilter(
+        linked_chat_filter, UserCommentFormatFilter()) if not DISABLE_COMMENT_CLONE else SkipAll()
 )
+
+for source, targets in _CHAT_MAPPING.items():
+    CHAT_MAPPING.setdefault(source.channel, []).extend(
+        [t.channel for t in targets])
+    if source.comments:
+        CHAT_MAPPING.setdefault(source.comments, []).extend(
+            [t.comments for t in targets if t.comments])
+
+    for target in targets:
+        TARGET_CONFIG[target.channel] = channel_config
+        if target.comments:
+            TARGET_CONFIG[target.comments] = comments_config
