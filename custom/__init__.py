@@ -3,7 +3,6 @@ from typing import Optional, Tuple, Union
 
 from telemirror.hints import EventMessage
 from telemirror.messagefilters import ForwardFormatFilter, MessageFilter
-from telemirror.misc.message import MessageLink
 from telemirror.storage import Database, MirrorMessage
 from telethon import types, utils
 
@@ -131,7 +130,7 @@ class LinkedChatFilter(MessageFilter):
         return False
 
 
-class UserCommentFormatFilter(MessageLink, MessageFilter):
+class UserCommentFormatFilter(MessageFilter):
     """User comment format filter for linked chat
     """
 
@@ -153,6 +152,18 @@ class UserCommentFormatFilter(MessageLink, MessageFilter):
                 message.text = f'[{name} say]({message_link}):\n{message.text}'
 
         return True, message
+
+    def message_link(self, message: EventMessage) -> str:
+
+        reply_id = message.id
+        channel_id = utils.get_peer_id(message.peer_id, add_mark=False)
+
+        if message.reply_to is None:
+            return f'https://t.me/c/{channel_id}/{reply_id}'
+
+        reply_to_id = message.reply_to_msg_id
+
+        return f'https://t.me/c/{channel_id}/{reply_id}?thread={reply_to_id}'
 
 
 class MappedChannelName:
