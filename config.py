@@ -68,7 +68,7 @@ def cast_env_chat_mapping(v: str) -> dict[int, list[int]]:
     import re
 
     matches = re.findall(
-        r'\[?((?:\(-?\d+\|\".+\"\|?(?:-?\d+)?\),?)+):((?:\(-?\d+\|?(?:-?\d+)\),?)+)\]?', v, re.MULTILINE)
+        r'\[?((?:\(-?\d+\|\"[^\"]+\"\|?(?:-?\d+)?\),?)+):((?:\(-?\d+\|?(?:-?\d+)\),?)+)\]?', v, re.MULTILINE)
     for match in matches:
         sources = [Source(val) for val in match[0].split(',')]
         targets = [Target(val) for val in match[1].split(',')]
