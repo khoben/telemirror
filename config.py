@@ -5,8 +5,8 @@ from dataclasses import dataclass
 
 from decouple import Csv, config
 
-from telemirror.messagefilters import (CompositeMessageFilter,
-                                       EmptyMessageFilter,
+from custom import SkipForKeywords
+from telemirror.messagefilters import (CompositeMessageFilter, EmptyMessageFilter, ForwardFormatFilter,
                                        KeywordReplaceFilter, MessageFilter)
 
 # telegram app id
@@ -55,14 +55,22 @@ TARGET_CONFIG: dict[int, TargetConfig] = {}
 # source and target chats mapping
 CHAT_MAPPING: dict[int, list[int]] = {}
 
-SOURCE_CHATS: list[int] = config("SOURCE_CHATS", cast=Csv(cast=int, post_process=list))
-TARGET_CHANNEL: int = config("TARGET_CHANNEL", cast=int)
+_SOURCE_CHATS: list[int] = config("SOURCE_CHATS", cast=Csv(cast=int, post_process=list))
 
-for source in SOURCE_CHATS:
-    CHAT_MAPPING[source] = [TARGET_CHANNEL]
+SOURCE_CHATS: list[int] = [c + 1000000000000 if c + 2000000000000 < 0 else c for c in _SOURCE_CHATS]
+
+TARGET_CHANNEL: int = config("TARGET_CHANNEL", cast=int)
+TARGET_COMMENT_CHAT: int = config("TARGET_COMMENT_CHAT", cast=int)
+
+for source in _SOURCE_CHATS:
+    if source + 2000000000000 < 0:
+        CHAT_MAPPING[source + 1000000000000] = [TARGET_COMMENT_CHAT]
+    else:
+        CHAT_MAPPING[source] = [TARGET_CHANNEL]
 
 DISABLE_EDIT: bool = config("DISABLE_EDIT", cast=bool, default=False)
 DISABLE_DELETE: bool = config("DISABLE_DELETE", cast=bool, default=False)
+DISABLE_COMMENT_CLONE: bool = config("DISABLE_COMMENT_CLONE", cast=bool, default=False)
 
 def cast_env_keyword_replace(v: str) -> dict[str, str]:
     mapping = {}
@@ -72,46 +80,36 @@ def cast_env_keyword_replace(v: str) -> dict[str, str]:
 
     import re
 
-    matches = re.findall(r'(\w+):(\w+)', v, re.MULTILINE)
+    matches = re.findall(r'(\w+):(\w*)', v, re.MULTILINE)
     for match in matches:
         mapping[match[0]] = match[1]
     return mapping
 
-ENABLE_KEYWORD_REPLACE: bool = config(
-    "KEYWORD_REPLACE_ENABLE", cast=bool, default=True)
+filters = []
+
+KEYWORD_DO_NOT_FORWARD_MAP: set[str] = config(
+    "KEYWORD_DO_NOT_FORWARD_MAP", cast=Csv(cast=str, post_process=set), default="")
+
+if KEYWORD_DO_NOT_FORWARD_MAP:
+    filters.append(SkipForKeywords(KEYWORD_DO_NOT_FORWARD_MAP))
+
 KEYWORD_REPLACE_MAP: dict[str, str] = config(
     "KEYWORD_REPLACE_MAP", cast=cast_env_keyword_replace, default="")
 
-from custom import AllowChannelPostFilter, BottomLinkFilter
-
-filters = [AllowChannelPostFilter()]
-
-if ENABLE_KEYWORD_REPLACE:
+if KEYWORD_REPLACE_MAP:
     filters.append(KeywordReplaceFilter(KEYWORD_REPLACE_MAP))
 
-ENABLE_BOTTOM_LINK: bool = config(
-    "BOTTOM_LINK_ENABLE", cast=bool, default=True)
-BOTTOM_LINK_DISPLAY_NAME: str = config(
-    "BOTTOM_LINK_DISPLAY_NAME", default='Link')
-
-if ENABLE_BOTTOM_LINK:
-    filters.append(BottomLinkFilter('{message_text}\n\n[{link_display_name}]({message_link})'.format(
-        link_display_name=BOTTOM_LINK_DISPLAY_NAME,
-        message_text='{message_text}',
-        message_link='{message_link}'
-    )))
+filters.append(ForwardFormatFilter("{message_text}\n=======\nMsg from: [{channel_name}]({message_link})"))
 
 channel_filter = CompositeMessageFilter(
     *filters) if (len(filters) > 1) else filters[0]
 
-from custom import KEY_COMMENT, KEY_POST
-
-TARGET_CONFIG[KEY_POST] = TargetConfig(
+TARGET_CONFIG[TARGET_CHANNEL] = TargetConfig(
     disable_delete=DISABLE_DELETE,
     disable_edit=DISABLE_EDIT,
     filters=channel_filter
 )
-TARGET_CONFIG[KEY_COMMENT] = TargetConfig(
+TARGET_CONFIG[TARGET_COMMENT_CHAT] = TargetConfig(
     disable_delete=DISABLE_DELETE,
     disable_edit=DISABLE_EDIT,
     filters=EmptyMessageFilter()

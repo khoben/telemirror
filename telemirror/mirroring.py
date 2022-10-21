@@ -7,7 +7,6 @@ from telethon.extensions import markdown
 from telethon.sessions import StringSession
 from telethon.tl import types
 
-from custom import KEY_COMMENT, KEY_POST
 from .hints import EventLike, EventMessage
 from .storage import Database, MirrorMessage
 
@@ -54,26 +53,25 @@ class EventHandlers:
 
             for outgoing_chat in outgoing_chats:
 
-                for idx, config in enumerate([self._target_config.get(KEY_POST), self._target_config.get(KEY_COMMENT)]):
+                config = self._target_config.get(outgoing_chat)
 
-                    proceed, filtered_message = await config.filters.process(incoming_message)
+                proceed, filtered_message = await config.filters.process(incoming_message)
 
-                    if proceed is False:
-                        continue
+                if proceed is False:
+                    continue
 
-                    outgoing_message = await self.send_message(
-                        entity=outgoing_chat,
-                        message=filtered_message,
-                        formatting_entities=filtered_message.entities,
-                        reply_to=reply_to_messages.get(outgoing_chat) if idx == KEY_POST else None,
-                        comment_to=reply_to_messages.get(outgoing_chat) if idx == KEY_COMMENT else None
-                    )
+                outgoing_message = await self.send_message(
+                    entity=outgoing_chat,
+                    message=filtered_message,
+                    formatting_entities=filtered_message.entities,
+                    reply_to=reply_to_messages.get(outgoing_chat)
+                )
 
-                    if outgoing_message:
-                        await self._database.insert(MirrorMessage(original_id=filtered_message.id,
-                                                                original_channel=incoming_chat_id,
-                                                                mirror_id=outgoing_message.id,
-                                                                mirror_channel=utils.get_peer_id(outgoing_message.peer_id)))
+                if outgoing_message:
+                    await self._database.insert(MirrorMessage(original_id=filtered_message.id,
+                                                              original_channel=incoming_chat_id,
+                                                              mirror_id=outgoing_message.id,
+                                                              mirror_channel=outgoing_chat))
         except Exception as e:
             self._logger.error(e, exc_info=True)
 
@@ -108,54 +106,52 @@ class EventHandlers:
             } if incoming_first_message.is_reply else {}
 
             for outgoing_chat in outgoing_chats:
+                config = self._target_config.get(outgoing_chat)
 
-                for idx, config in enumerate([self._target_config.get(KEY_POST), self._target_config.get(KEY_COMMENT)]):
+                proceed = True
+                filtered = False
+                filtered_album: list[EventMessage] = []
 
-                    proceed = True
-                    filtered = False
-                    filtered_album: list[EventMessage] = []
+                for m in incoming_album:
+                    if m.message and not filtered:
+                        filtered = True
+                        proceed, filtered_message = await config.filters.process(m)
+                        if proceed is False:
+                            break
+                        filtered_album.append(filtered_message)
+                    else:
+                        filtered_album.append(m)
 
-                    for m in incoming_album:
-                        if m.message and not filtered:
-                            filtered = True
-                            proceed, filtered_message = await config.filters.process(m)
-                            if proceed is False:
-                                break
-                            filtered_album.append(filtered_message)
-                        else:
-                            filtered_album.append(m)
+                if not filtered:
+                    proceed, filtered_album[0] = await config.filters.process(filtered_album[0])
 
-                    if not filtered:
-                        proceed, filtered_album[0] = await config.filters.process(filtered_album[0])
+                # Apply filters to first non-empty or first message
+                if proceed is False:
+                    continue
 
-                    # Apply filters to first non-empty or first message
-                    if proceed is False:
-                        continue
+                idx: list[int] = []
+                files: list[types.TypeMessageMedia] = []
+                captions: list[str] = []
+                for incoming_message in filtered_album:
+                    idx.append(incoming_message.id)
+                    files.append(incoming_message.media)
+                    # Pass unparsed text, since: https://github.com/LonamiWebs/Telethon/issues/3065
+                    captions.append(incoming_message.text)
 
-                    idx: list[int] = []
-                    files: list[types.TypeMessageMedia] = []
-                    captions: list[str] = []
-                    for incoming_message in filtered_album:
-                        idx.append(incoming_message.id)
-                        files.append(incoming_message.media)
-                        # Pass unparsed text, since: https://github.com/LonamiWebs/Telethon/issues/3065
-                        captions.append(incoming_message.text)
+                outgoing_messages: list[types.Message] = await self.send_file(
+                    entity=outgoing_chat,
+                    caption=captions,
+                    file=files,
+                    reply_to=reply_to_messages.get(outgoing_chat)
+                )
 
-                    outgoing_messages: list[types.Message] = await self.send_file(
-                        entity=outgoing_chat,
-                        caption=captions,
-                        file=files,
-                        reply_to=reply_to_messages.get(outgoing_chat) if idx == KEY_POST else None,
-                        comment_to=reply_to_messages.get(outgoing_chat) if idx == KEY_COMMENT else None
-                    )
-
-                    # Expect non-empty list of messages
-                    if outgoing_messages and utils.is_list_like(outgoing_messages):
-                        for message_index, outgoing_message in enumerate(outgoing_messages):
-                            await self._database.insert(MirrorMessage(original_id=idx[message_index],
-                                                                    original_channel=incoming_chat_id,
-                                                                    mirror_id=outgoing_message.id,
-                                                                    mirror_channel=utils.get_peer_id(outgoing_message.peer_id)))
+                # Expect non-empty list of messages
+                if outgoing_messages and utils.is_list_like(outgoing_messages):
+                    for message_index, outgoing_message in enumerate(outgoing_messages):
+                        await self._database.insert(MirrorMessage(original_id=idx[message_index],
+                                                                  original_channel=incoming_chat_id,
+                                                                  mirror_id=outgoing_message.id,
+                                                                  mirror_channel=outgoing_chat))
 
         except Exception as e:
             self._logger.error(e, exc_info=True)
@@ -181,7 +177,8 @@ class EventHandlers:
                 return
 
             for outgoing_message in outgoing_messages:
-                config = self._target_config.get(KEY_POST)
+                config = self._target_config.get(
+                    outgoing_message.mirror_channel)
 
                 if config.disable_edit is True:
                     continue

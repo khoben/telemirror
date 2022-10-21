@@ -1,18 +1,19 @@
 import logging
 
-from config import (API_HASH, API_ID, CHAT_MAPPING, DB_URL, LOG_LEVEL,
-                    SESSION_STRING, TARGET_CONFIG,
-                    USE_MEMORY_DB)
-from custom import UserCommentFormatFilter, KEY_COMMENT
+from config import (API_HASH, API_ID, CHAT_MAPPING, DB_URL,
+                    DISABLE_COMMENT_CLONE, LOG_LEVEL, SESSION_STRING,
+                    TARGET_COMMENT_CHAT, TARGET_CONFIG, USE_MEMORY_DB)
+from custom import LinkedChatFilter, UserCommentFormatFilter, SkipAll
+from telemirror.messagefilters import CompositeMessageFilter
 from telemirror.mirroring import MirrorTelegramClient
 from telemirror.storage import Database, InMemoryDatabase, PostgresDatabase
 
 
 async def init_telemirror(logger: logging.Logger, database: Database):
-    
     await database.async_init()
 
-    TARGET_CONFIG[KEY_COMMENT].filters = UserCommentFormatFilter(database)
+    TARGET_CONFIG[TARGET_COMMENT_CHAT].filters = CompositeMessageFilter(
+        LinkedChatFilter(database), UserCommentFormatFilter()) if not DISABLE_COMMENT_CLONE else SkipAll()
 
     await MirrorTelegramClient(
         SESSION_STRING,
