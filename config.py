@@ -5,9 +5,11 @@ from dataclasses import dataclass
 
 from decouple import Csv, config
 
-from custom import (LinkedChatFilter, MappedNameForwardFormat, SkipAll,
-                    SkipForKeywords, Source, Target, UserCommentFormatFilter)
+from custom import (EmptyPostMessageFilter, LinkedChatFilter, MappedNameForwardFormat, PostMessageFilter,
+                    PostSendClonedCommentsWarning, SkipAll, SkipForKeywords,
+                    Source, Target, UserCommentFormatFilter)
 from telemirror.messagefilters import (CompositeMessageFilter,
+                                       EmptyMessageFilter,
                                        KeywordReplaceFilter, MessageFilter)
 from telemirror.storage import Database
 
@@ -50,6 +52,7 @@ class TargetConfig:
     disable_delete: bool
     disable_edit: bool
     filters: MessageFilter
+    post_filters: PostMessageFilter
 
 
 # target channels config
@@ -134,13 +137,15 @@ def init_filters_with_db(db: Database) -> None:
 channel_config = TargetConfig(
     disable_delete=DISABLE_DELETE,
     disable_edit=DISABLE_EDIT,
-    filters=channel_filter
+    filters=channel_filter,
+    post_filters=PostSendClonedCommentsWarning()
 )
 comments_config = TargetConfig(
     disable_delete=DISABLE_DELETE,
     disable_edit=DISABLE_EDIT,
     filters=CompositeMessageFilter(
-        linked_chat_filter, UserCommentFormatFilter()) if not DISABLE_COMMENT_CLONE else SkipAll()
+        linked_chat_filter, UserCommentFormatFilter()) if not DISABLE_COMMENT_CLONE else SkipAll(),
+    post_filters=EmptyPostMessageFilter()
 )
 
 for source, targets in _CHAT_MAPPING.items():

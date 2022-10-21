@@ -72,6 +72,8 @@ class EventHandlers:
                                                               original_channel=incoming_chat_id,
                                                               mirror_id=outgoing_message.id,
                                                               mirror_channel=outgoing_chat))
+
+                    await config.post_filters.process(incoming_message, outgoing_message)
         except Exception as e:
             self._logger.error(e, exc_info=True)
 
@@ -152,6 +154,8 @@ class EventHandlers:
                                                                   original_channel=incoming_chat_id,
                                                                   mirror_id=outgoing_message.id,
                                                                   mirror_channel=outgoing_chat))
+
+                    await config.post_filters.process(incoming_first_message, outgoing_messages[0])
 
         except Exception as e:
             self._logger.error(e, exc_info=True)
