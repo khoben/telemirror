@@ -25,28 +25,18 @@
         "SESSION_STRING": {
             "description": "Telegram session string value"
         },
-        "SOURCE_CHATS": {
-            "description": "Comma-separated list of source chats (with their IDs (-100...)). Example: -100source1,-100source2"
+        "CHAT_MAPPING": {
+            "description": "Chat mapping. Example: [(source_id|source_title|linked_chat_id),...:(target_id|linked_chat_id)];.... 'linked_chat_id' is optional, 'source_title' must be enclosed in double quotes"
         },
-        "TARGET_CHANNEL": {
-            "description": "Target channel with linked chat (comments enabled). Example: -100target1"
-        },
-        "KEYWORD_REPLACE_ENABLE": {
-            "description": "Enable keywords replacing (true or false). Defaults to true",
-            "value": "true",
-            "required": false
+        "KEYWORD_DO_NOT_FORWARD_MAP": {
+            "description": "Comma-separated list words to stop forwarding. Leave empty to disable. Example: stop,word"
         },
         "KEYWORD_REPLACE_MAP": {
-            "description": "Comma-separated list keywords to replace. Example: cat:dog,one:two",
+            "description": "Comma-separated list keywords to replace. Leave empty to disable. Example: cat:dog,one:two",
             "required": false
         },
-        "BOTTOM_LINK_ENABLE": {
-            "description": "Enable bottom link to original post (true or false). Defaults to true",
-            "value": "true",
-            "required": false
-        },
-        "BOTTOM_LINK_DISPLAY_NAME": {
-            "description": "Bottom link display name. Defaults to Link",
+        "DISABLE_COMMENT_CLONE": {
+            "description": "Disable comment cloning. Defaults to false",
             "required": false
         },
         "DISABLE_DELETE": {
