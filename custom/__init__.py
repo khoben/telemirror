@@ -149,7 +149,7 @@ class UserCommentFormatFilter(MessageFilter):
                     name = 'Channel'
 
             if message_link:
-                message.text = f'[{name} say]({message_link}):\n{message.text}'
+                message.text = f'[{name} say]({message_link}): {message.text}'
 
         return True, message
 
