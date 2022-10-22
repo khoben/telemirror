@@ -1,6 +1,6 @@
 # Telegram forwarder from channels (make channel mirrors) via Telegram Client API (telethon)
 
-To comments cloning user should join to linked group with comments
+To comments cloning user should join to channel and linked group with comments
 
 ## Env variables
 
