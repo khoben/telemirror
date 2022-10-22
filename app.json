@@ -29,7 +29,8 @@
             "description": "Chat mapping. Example: [(source_id|source_title|linked_chat_id),...:(target_id|linked_chat_id)];.... 'linked_chat_id' is optional, 'source_title' must be enclosed in double quotes"
         },
         "KEYWORD_DO_NOT_FORWARD_MAP": {
-            "description": "Comma-separated list words to stop forwarding. Leave empty to disable. Example: stop,word"
+            "description": "Comma-separated list words to stop forwarding. Leave empty to disable. Example: stop,word",
+            "required": false
         },
         "KEYWORD_REPLACE_MAP": {
             "description": "Comma-separated list keywords to replace. Leave empty to disable. Example: cat:dog,one:two",
