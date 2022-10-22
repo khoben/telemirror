@@ -37,6 +37,7 @@
         },
         "DISABLE_COMMENT_CLONE": {
             "description": "Disable comment cloning. Defaults to false",
+            "value": "false",
             "required": false
         },
         "DISABLE_DELETE": {
