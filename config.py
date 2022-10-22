@@ -138,7 +138,7 @@ channel_config = TargetConfig(
     disable_delete=DISABLE_DELETE,
     disable_edit=DISABLE_EDIT,
     filters=channel_filter,
-    post_filters=PostSendClonedCommentsWarning()
+    post_filters=PostSendClonedCommentsWarning() if not DISABLE_COMMENT_CLONE else EmptyPostMessageFilter()
 )
 comments_config = TargetConfig(
     disable_delete=DISABLE_DELETE,
