@@ -76,6 +76,26 @@ class Database(Protocol):
         """
         raise NotImplementedError
 
+    @abstractmethod
+    async def check_for_message(self: 'Database', message_key: str) -> bool:
+        """
+        Check for message with key
+
+        Args:
+            message_key (`str`): Message key
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    async def mark_message(self: 'Database', message_key: str) -> None:
+        """
+        Mark message with key
+
+        Args:
+            message_key (`str`): Message key
+        """
+        raise NotImplementedError
+
     def __repr__(self) -> str:
         return self.__class__.__name__
 
@@ -122,6 +142,8 @@ class InMemoryDatabase(Database):
     def __init__(self: 'InMemoryDatabase', max_capacity: int = MAX_CAPACITY) -> 'InMemoryDatabase':
         self.__stored = self.LimitedDict[str, List[MirrorMessage]](
             capacity=max_capacity)
+        self.__check_message = self.LimitedDict[str, bool](
+            capacity=max_capacity)
 
     async def async_init(self: 'InMemoryDatabase') -> 'InMemoryDatabase':
         return self
@@ -161,6 +183,24 @@ class InMemoryDatabase(Database):
                 original_id, original_channel)]
         except KeyError:
             pass
+
+    async def check_for_message(self: 'InMemoryDatabase', message_key: str) -> bool:
+        """
+        Check for message with key
+
+        Args:
+            message_key (`str`): Message key
+        """
+        return message_key in self.__check_message
+
+    async def mark_message(self: 'InMemoryDatabase', message_key: str) -> None:
+        """
+        Mark message with key
+
+        Args:
+            message_key (`str`): Message key
+        """
+        self.__check_message[message_key] = True
 
     def __build_message_hash(self: 'InMemoryDatabase', original_id: int, original_channel: int) -> str:
         """
@@ -269,10 +309,47 @@ class PostgresDatabase(Database):
                                 AND original_channel = %s
                                 """, (original_id, original_channel,))
 
+    async def check_for_message(self: 'PostgresDatabase', message_key: str) -> bool:
+        """
+        Check for message with key
+
+        Args:
+            message_key (`str`): Message key
+        """
+
+        checked = False
+        async with self.__pg_cursor() as cursor:
+            await cursor.execute("""
+                                select exists(select 1 from checked_message where message_key=%s)
+                                """, (message_key,))
+            result = await cursor.fetchone()
+            checked = result[0]
+        return checked
+
+    async def mark_message(self: 'PostgresDatabase', message_key: str) -> None:
+        """
+        Mark message with key
+
+        Args:
+            message_key (`str`): Message key
+        """
+
+        async with self.__pg_cursor() as cursor:
+            await cursor.execute("""
+                                INSERT INTO checked_message (message_key)
+                                VALUES (%s)
+                                """, (message_key,))
+
     async def __create_binding_if_not_exists(self: 'PostgresDatabase'):
         """Create binding table if not exists"""
 
         async with self.__pg_cursor() as cursor:
+            await cursor.execute("""
+                                CREATE TABLE IF NOT EXISTS checked_message(   
+                                    id serial primary key not null,
+                                    message_key text not null)
+                                """)
+
             await cursor.execute("""
                                 CREATE TABLE IF NOT EXISTS binding_id(   
                                     id serial primary key not null,

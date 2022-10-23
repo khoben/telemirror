@@ -52,7 +52,6 @@ class TargetConfig:
     disable_delete: bool
     disable_edit: bool
     filters: MessageFilter
-    post_filters: PostMessageFilter
 
 
 # target channels config
@@ -128,24 +127,24 @@ channel_filter = CompositeMessageFilter(
     *filters) if (len(filters) > 1) else filters[0]
 
 linked_chat_filter = LinkedChatFilter()
+user_comment_filer = UserCommentFormatFilter()
 
 
 def init_filters_with_db(db: Database) -> None:
     linked_chat_filter.install_db(db)
+    user_comment_filer.install_db(db)
 
 
 channel_config = TargetConfig(
     disable_delete=DISABLE_DELETE,
     disable_edit=DISABLE_EDIT,
-    filters=channel_filter,
-    post_filters=PostSendClonedCommentsWarning() if not DISABLE_COMMENT_CLONE else EmptyPostMessageFilter()
+    filters=channel_filter
 )
 comments_config = TargetConfig(
     disable_delete=DISABLE_DELETE,
     disable_edit=DISABLE_EDIT,
     filters=CompositeMessageFilter(
-        linked_chat_filter, UserCommentFormatFilter()) if not DISABLE_COMMENT_CLONE else SkipAll(),
-    post_filters=EmptyPostMessageFilter()
+        linked_chat_filter, user_comment_filer) if not DISABLE_COMMENT_CLONE else SkipAll()
 )
 
 for source, targets in _CHAT_MAPPING.items():
