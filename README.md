@@ -11,7 +11,9 @@
     - [UrlMessageFilter](/telemirror/messagefilters.py#L90) - URLs filter
     - [ForwardFormatFilter](/telemirror/messagefilters.py#L152) - Forward formatting filter
     - [KeywordReplaceFilter](/telemirror/messagefilters.py#L214) - Keyword replacing filter
-    - [RestrictSavingContentBypassFilter](/telemirror/messagefilters.py#L238) - `Saving content restriction` filter (not ready, PRs are welcome)
+    - [SkipAllFilter](/telemirror/messagefilters.py#L237) - Skip all messages filter
+    - [SkipWithKeywordsFilter](/telemirror/messagefilters.py#L244) - Skip for keywords message text filter
+    - [RestrictSavingContentBypassFilter](/telemirror/messagefilters.py#L257) - `Saving content restriction` filter (not ready, PRs are welcome)
 
 ## Prepare
 0. It's better ***not to use your main account***. Register a new Telegram account
@@ -129,7 +131,7 @@
 
 ### Be careful with forwards from channels with [`restricted saving content`](https://telegram.org/blog/protected-content-delete-by-date-and-more). It may lead to an account ban. 
 
-If you want to bypass forward restriction, see [RestrictSavingContentBypassFilter source](/telemirror/messagefilters.py#L96) to start.
+If you want to bypass forward restriction, see [RestrictSavingContentBypassFilter sources](/telemirror/messagefilters.py#L257) to start.
 
 ## Deploy
 

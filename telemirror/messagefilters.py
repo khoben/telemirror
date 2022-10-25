@@ -234,6 +234,25 @@ class KeywordReplaceFilter(CopyMessage, MessageFilter):
 
         return True, filtered_message
 
+class SkipAllFilter(MessageFilter):
+    """Skips all messages
+    """
+    async def process(self, message: EventMessage) -> Tuple[bool, EventMessage]:
+        return False, message
+
+
+class SkipWithKeywordsFilter(MessageFilter):
+    """Skips message if some keyword found
+    """
+
+    def __init__(self, keywords: set[str]) -> None:
+        self._regex = re.compile(
+            '|'.join([f'(\\b{k}\\b)' for k in keywords]), flags=re.IGNORECASE)
+
+    async def process(self, message: EventMessage) -> Tuple[bool, EventMessage]:
+        if self._regex.match(message.message):
+            return False, message
+        return True, message
 
 class RestrictSavingContentBypassFilter(MessageFilter):
     """Filter that bypasses `saving content restriction`
