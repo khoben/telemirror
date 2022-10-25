@@ -120,7 +120,7 @@ if KEYWORD_REPLACE_MAP:
     filters.append(KeywordReplaceFilter(KEYWORD_REPLACE_MAP))
 
 filters.append(MappedNameForwardFormat(mapped={k.channel: k.title for k in _CHAT_MAPPING.keys(
-)}, format="{message_text}\n=======\nMsg from: [{channel_name}]({message_link})"))
+)}, format="{message_text}\n=======\n消息来源: [{channel_name}]({message_link})"))
 
 channel_filter = CompositeMessageFilter(
     *filters) if (len(filters) > 1) else filters[0]

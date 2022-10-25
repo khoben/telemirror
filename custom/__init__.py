@@ -113,7 +113,7 @@ class UserCommentFormatFilter(MessageFilter):
     """User comment format filter for linked chat
     """
 
-    WARNING = "These are cloned comments.\nIf you want to comment, please [click here]({link}) to go to the original channel."
+    WARNING = "这里是克隆后的消息评论,想要到原频道消息中进行评论[请点击这里]({link})."
 
     def install_db(self, db: Database) -> None:
         self._database = db
@@ -134,7 +134,7 @@ class UserCommentFormatFilter(MessageFilter):
                     name = 'Channel'
 
             if message_link:
-                message.text = f'[{name} say]({message_link}): {message.text}'
+                message.text = f'[{name} 说]({message_link}): {message.text}'
 
             reply_key = self.__reply_message_key(message)
 

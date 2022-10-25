@@ -34,4 +34,4 @@ LOG_LEVEL=info
 
 ### Host on Heroku:
 
-[![Deploy](https://www.herokucdn.com/deploy/button.svg)](https://heroku.com/deploy?template=https://github.com/khoben/telemirror/tree/custom/madlifer)
+[![Deploy](https://www.herokucdn.com/deploy/button.svg)](https://heroku.com/deploy?template=https://github.com/madlifer/telemirror/tree/custom/madlifer)
