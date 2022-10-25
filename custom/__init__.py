@@ -1,10 +1,7 @@
-import re
-from abc import abstractmethod
-from typing import Optional, Protocol, Tuple, Union
+from typing import Optional, Tuple, Union
 
 from telemirror.hints import EventMessage
 from telemirror.messagefilters import ForwardFormatFilter, MessageFilter
-from telemirror.misc.message import MessageLink
 from telemirror.storage import Database, MirrorMessage
 from telethon import TelegramClient, types, utils
 
@@ -50,56 +47,6 @@ class Source:
 
     def __repr__(self) -> str:
         return f'Source(channel={self.channel}, title={self.title}, comments={self.comments})'
-
-
-class PostMessageFilter(Protocol):
-
-    @abstractmethod
-    async def process(self, original: EventMessage, cloned: EventMessage) -> None:
-        raise NotImplementedError
-
-
-class EmptyPostMessageFilter(PostMessageFilter):
-
-    async def process(self, original: EventMessage, cloned: EventMessage) -> None:
-        return None
-
-
-class PostSendClonedCommentsWarning(MessageLink, PostMessageFilter):
-    """Send comments cloning warning
-    """
-
-    WARNING = "These are cloned comments.\nIf you want to comment, please [click here]({link}) to go to the original channel."
-
-    async def process(self, original: EventMessage, cloned: EventMessage) -> None:
-        client: TelegramClient = original.client
-        try:
-            message_link: Optional[str] = self.message_link(original)
-            if message_link:
-                await client.send_message(cloned.peer_id, message=self.WARNING.format(link=message_link), link_preview=False, comment_to=cloned.id)
-        finally:
-            return None
-
-
-class SkipAll(MessageFilter):
-    """Skips all messages
-    """
-    async def process(self, message: EventMessage) -> Tuple[bool, EventMessage]:
-        return False, message
-
-
-class SkipForKeywords(MessageFilter):
-    """Skips message if some keyword found
-    """
-
-    def __init__(self, keywords: set[str]) -> None:
-        self._regex = re.compile(
-            '|'.join([f'(\\b{k}\\b)' for k in keywords]), flags=re.IGNORECASE)
-
-    async def process(self, message: EventMessage) -> Tuple[bool, EventMessage]:
-        if self._regex.match(message.message):
-            return False, message
-        return True, message
 
 
 class LinkedChatFilter(MessageFilter):

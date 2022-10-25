@@ -5,12 +5,11 @@ from dataclasses import dataclass
 
 from decouple import Csv, config
 
-from custom import (EmptyPostMessageFilter, LinkedChatFilter, MappedNameForwardFormat, PostMessageFilter,
-                    PostSendClonedCommentsWarning, SkipAll, SkipForKeywords,
-                    Source, Target, UserCommentFormatFilter)
+from custom import (LinkedChatFilter, MappedNameForwardFormat, Source, Target,
+                    UserCommentFormatFilter)
 from telemirror.messagefilters import (CompositeMessageFilter,
-                                       EmptyMessageFilter,
-                                       KeywordReplaceFilter, MessageFilter)
+                                       KeywordReplaceFilter, MessageFilter,
+                                       SkipAllFilter, SkipWithKeywordsFilter)
 from telemirror.storage import Database
 
 # telegram app id
@@ -112,7 +111,7 @@ KEYWORD_DO_NOT_FORWARD_MAP: set[str] = config(
     "KEYWORD_DO_NOT_FORWARD_MAP", cast=Csv(cast=str, post_process=set), default="")
 
 if KEYWORD_DO_NOT_FORWARD_MAP:
-    filters.append(SkipForKeywords(KEYWORD_DO_NOT_FORWARD_MAP))
+    filters.append(SkipWithKeywordsFilter(KEYWORD_DO_NOT_FORWARD_MAP))
 
 KEYWORD_REPLACE_MAP: dict[str, str] = config(
     "KEYWORD_REPLACE_MAP", cast=cast_env_keyword_replace, default="")
@@ -144,7 +143,7 @@ comments_config = TargetConfig(
     disable_delete=DISABLE_DELETE,
     disable_edit=DISABLE_EDIT,
     filters=CompositeMessageFilter(
-        linked_chat_filter, user_comment_filer) if not DISABLE_COMMENT_CLONE else SkipAll()
+        linked_chat_filter, user_comment_filer) if not DISABLE_COMMENT_CLONE else SkipAllFilter()
 )
 
 for source, targets in _CHAT_MAPPING.items():
