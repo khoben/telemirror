@@ -1,4 +1,3 @@
-import collections
 from abc import abstractmethod
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
@@ -6,6 +5,8 @@ from typing import List, Protocol
 
 from psycopg.rows import class_row
 from psycopg_pool import AsyncConnectionPool
+
+from misc.limiteddict import LimitedDict
 
 
 @dataclass
@@ -89,38 +90,10 @@ class InMemoryDatabase(Database):
     - Get `MirrorMessage` object from database by original message ID
     """
 
-    class LimitedDict(collections.OrderedDict):
-        """
-        Dict with a limited length, ejecting LRUs as needed.
-        """
-
-        def __init__(self, *args, capacity, free_factor=0.5, **kwargs):
-            assert capacity > 0
-            assert free_factor > 0.1 and free_factor <= 1.0
-            self.capacity = capacity
-            self.keep_last = max(1.0, capacity * (1.0 - free_factor))
-
-            super().__init__(*args, **kwargs)
-
-        def __setitem__(self, key, value):
-            super().__setitem__(key, value)
-            super().move_to_end(key)
-
-            if len(self) > self.capacity:
-                while len(self) > self.keep_last:
-                    oldkey = next(iter(self))
-                    super().__delitem__(oldkey)
-
-        def __getitem__(self, key):
-            val = super().__getitem__(key)
-            super().move_to_end(key)
-
-            return val
-
     MAX_CAPACITY = 100
 
     def __init__(self: 'InMemoryDatabase', max_capacity: int = MAX_CAPACITY) -> 'InMemoryDatabase':
-        self.__stored = self.LimitedDict[str, List[MirrorMessage]](
+        self.__stored = LimitedDict[str, List[MirrorMessage]](
             capacity=max_capacity)
 
     async def async_init(self: 'InMemoryDatabase') -> 'InMemoryDatabase':
