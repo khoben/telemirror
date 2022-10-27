@@ -6,15 +6,15 @@
 - Live forwarding and updating messages
 - Flexible mapping of source and target channels/chats (one-to-one, many-to-one, many-to-many)
 - Configurable incoming message filters:
-    - [CompositeMessageFilter](/telemirror/messagefilters/base.py.py#L28) - Composite filter that sequentially applies other filters
-    - [EmptyMessageFilter](/telemirror/messagefilters/messagefilters.py#L12) - Do nothing with message
-    - [SkipUrlFilter](/telemirror/messagefilters/messagefilters.py#L19) - Skip messages with URLs
-    - [UrlMessageFilter](/telemirror/messagefilters/messagefilters.py#L46) - URLs filter
-    - [ForwardFormatFilter](/telemirror/messagefilters/messagefilters.py#L108) - Forward formatting filter
-    - [MappedNameForwardFormat](/telemirror/messagefilters/messagefilters.py#L170) - Forward formatting filter with mapped channels name
-    - [KeywordReplaceFilter](/telemirror/messagefilters/messagefilters.py#L194) - Keyword replacing filter
-    - [SkipAllFilter](/telemirror/messagefilters.py#L219) - Skip all messages filter
-    - [SkipWithKeywordsFilter](/telemirror/messagefilters/messagefilters.py#L226) - Skip for keywords message text filter
+    - [CompositeMessageFilter](/telemirror/messagefilters/base.py#L28) - Composite filter that sequentially applies other filters
+    - [EmptyMessageFilter](/telemirror/messagefilters/messagefilters.py#L13) - Do nothing with message
+    - [SkipUrlFilter](/telemirror/messagefilters/messagefilters.py#L20) - Skip messages with URLs
+    - [UrlMessageFilter](/telemirror/messagefilters/messagefilters.py#L47) - URLs filter
+    - [ForwardFormatFilter](/telemirror/messagefilters/messagefilters.py#L109) - Forward formatting filter
+    - [MappedNameForwardFormat](/telemirror/messagefilters/messagefilters.py#L171) - Forward formatting filter with mapped channels name
+    - [KeywordReplaceFilter](/telemirror/messagefilters/messagefilters.py#L195) - Keyword replacing filter
+    - [SkipAllFilter](/telemirror//messagefilters/messagefilters.py#L220) - Skip all messages filter
+    - [SkipWithKeywordsFilter](/telemirror/messagefilters/messagefilters.py#L227) - Skip for keywords message text filter
     - [RestrictSavingContentBypassFilter](/telemirror/messagefilters/restrictsavingfilter.py#L7) - `Saving content restriction` filter (not ready, PRs are welcome)
 
 ## Prepare
