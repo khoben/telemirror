@@ -6,7 +6,7 @@ from typing import List, Protocol
 from psycopg.rows import class_row
 from psycopg_pool import AsyncConnectionPool
 
-from misc.limiteddict import LimitedDict
+from .misc.limiteddict import LimitedDict
 
 
 @dataclass
