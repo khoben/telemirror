@@ -1,34 +1,13 @@
 import re
-from abc import abstractmethod
-from typing import List, Optional, Protocol, Set, Tuple
+from typing import List, Optional, Set, Tuple
 
 from telethon import types, utils
-from telethon.extensions import markdown as md
+from telethon.extensions import markdown as md_parser
 
-from .hints import EventMessage
-from .misc.message import CopyMessage, MessageLink
-from .misc.uri import UriGuard
-
-
-class MessageFilter(Protocol):
-
-    @abstractmethod
-    async def process(self, message: EventMessage) -> Tuple[bool, EventMessage]:
-        """Apply filter to **message**
-
-        Args:
-            message (`EventMessage`): Source message
-
-        Returns:
-            Tuple[bool, EventMessage]: 
-                Indicates that the filtered message should be forwarded
-
-                Processed message
-        """
-        raise NotImplementedError
-
-    def __repr__(self) -> str:
-        return self.__class__.__name__
+from ..hints import EventMessage
+from ..misc.uri import UriGuard
+from .base import MessageFilter
+from .mixins import ChannelName, CopyMessage, MappedChannelName, MessageLink
 
 
 class EmptyMessageFilter(MessageFilter):
@@ -36,28 +15,6 @@ class EmptyMessageFilter(MessageFilter):
 
     async def process(self, message: EventMessage) -> Tuple[bool, EventMessage]:
         return True, message
-
-
-class CompositeMessageFilter(MessageFilter):
-    """Composite message filter that sequentially applies the filters
-
-    Args:
-        *arg (`MessageFilter`):
-            Message filters 
-    """
-
-    def __init__(self, *arg: MessageFilter) -> None:
-        self._filters = list(arg)
-
-    async def process(self, message: EventMessage) -> Tuple[bool, EventMessage]:
-        for f in self._filters:
-            cont, message = await f.process(message)
-            if cont is False:
-                return False, message
-        return True, message
-
-    def __repr__(self) -> str:
-        return f'{self.__class__.__name__}: {self._filters}'
 
 
 class SkipUrlFilter(MessageFilter):
@@ -149,7 +106,7 @@ class UrlMessageFilter(CopyMessage, MessageFilter):
         return True, filtered_message
 
 
-class ForwardFormatFilter(MessageLink, CopyMessage, MessageFilter):
+class ForwardFormatFilter(ChannelName, MessageLink, CopyMessage, MessageFilter):
     """Filter that adds a forwarding formatting (markdown supported): 
 
     Example:
@@ -173,7 +130,7 @@ class ForwardFormatFilter(MessageLink, CopyMessage, MessageFilter):
 
     async def process(self, message: EventMessage) -> Tuple[bool, EventMessage]:
         message_link: Optional[str] = self.message_link(message)
-        channel_name: str = utils.get_display_name(message.chat)
+        channel_name: str = self.channel_name(message)
 
         filtered_message = self.copy_message(message)
 
@@ -184,7 +141,7 @@ class ForwardFormatFilter(MessageLink, CopyMessage, MessageFilter):
                 message_link=message_link,
                 message_text=self.MESSAGE_PLACEHOLDER
             )
-            pre_formatted_text, pre_formatted_entities = md.parse(
+            pre_formatted_text, pre_formatted_entities = md_parser.parse(
                 pre_formatted_message)
 
             message_offset = pre_formatted_text.find(self.MESSAGE_PLACEHOLDER)
@@ -211,6 +168,30 @@ class ForwardFormatFilter(MessageLink, CopyMessage, MessageFilter):
         return True, filtered_message
 
 
+class MappedNameForwardFormat(MappedChannelName, ForwardFormatFilter):
+    """Filter that adds a forwarding formatting (markdown supported)
+    with mapped channel name: 
+
+    Example:
+    ```
+    {message_text}
+
+    Forwarded from [{channel_name}]({message_link})
+    ```
+
+    Args:
+        mapped (dict[int, str]): Mapped channel names: CHANNEL_ID -> CHANNEL_NAME
+
+        format (str): Forward header format, 
+        where `{channel_name}`, `{message_link}` and `{message_text}`
+        are placeholders to actual incoming message values.
+    """
+
+    def __init__(self, mapped: dict[int, str], format: str) -> None:
+        MappedChannelName.__init__(self, mapped)
+        ForwardFormatFilter.__init__(self, format)
+
+
 class KeywordReplaceFilter(CopyMessage, MessageFilter):
     """Filter that replaces keywords
 
@@ -228,11 +209,13 @@ class KeywordReplaceFilter(CopyMessage, MessageFilter):
 
         if unparsed_text:
             for k, v in self._keywords.items():
-                unparsed_text = re.sub(k, v, unparsed_text, flags=re.IGNORECASE)
+                unparsed_text = re.sub(
+                    k, v, unparsed_text, flags=re.IGNORECASE)
 
             filtered_message.text = unparsed_text
 
         return True, filtered_message
+
 
 class SkipAllFilter(MessageFilter):
     """Skips all messages
@@ -253,31 +236,3 @@ class SkipWithKeywordsFilter(MessageFilter):
         if self._regex.search(message.message):
             return False, message
         return True, message
-
-class RestrictSavingContentBypassFilter(MessageFilter):
-    """Filter that bypasses `saving content restriction`
-
-    Sample implementation:
-    Download the media, upload it to the Telegram servers,
-    and then change to the new uploaded media:
-
-    ```
-    if not message.media or not message.chat.noforwards:
-        return message
-
-    # Handle photos
-    if isinstance(message.media, types.MessageMediaPhoto):
-        client: TelegramClient = message.client
-        photo: bytes = client.download_media(message=message, file=bytes)
-        cloned_photo: types.TypeInputFile = client.upload_file(photo)
-        message.media = cloned_photo
-
-    # Others types...
-
-    return message
-
-    ```
-    """
-
-    async def process(self, message: EventMessage) -> Tuple[bool, EventMessage]:
-        raise NotImplementedError

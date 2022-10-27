@@ -6,14 +6,16 @@
 - Live forwarding and updating messages
 - Flexible mapping of source and target channels/chats (one-to-one, many-to-one, many-to-many)
 - Configurable incoming message filters:
-    - [CompositeMessageFilter](/telemirror/messagefilters.py#L41) - Composite filter that sequentially applies other filters
-    - [SkipUrlFilter](/telemirror/messagefilters.py#L63) - Skip messages with URLs
-    - [UrlMessageFilter](/telemirror/messagefilters.py#L90) - URLs filter
-    - [ForwardFormatFilter](/telemirror/messagefilters.py#L152) - Forward formatting filter
-    - [KeywordReplaceFilter](/telemirror/messagefilters.py#L214) - Keyword replacing filter
-    - [SkipAllFilter](/telemirror/messagefilters.py#L237) - Skip all messages filter
-    - [SkipWithKeywordsFilter](/telemirror/messagefilters.py#L244) - Skip for keywords message text filter
-    - [RestrictSavingContentBypassFilter](/telemirror/messagefilters.py#L257) - `Saving content restriction` filter (not ready, PRs are welcome)
+    - [CompositeMessageFilter](/telemirror/messagefilters/base.py.py#L28) - Composite filter that sequentially applies other filters
+    - [EmptyMessageFilter](/telemirror/messagefilters/messagefilters.py#L12) - Do nothing with message
+    - [SkipUrlFilter](/telemirror/messagefilters/messagefilters.py#L19) - Skip messages with URLs
+    - [UrlMessageFilter](/telemirror/messagefilters/messagefilters.py#L46) - URLs filter
+    - [ForwardFormatFilter](/telemirror/messagefilters/messagefilters.py#L108) - Forward formatting filter
+    - [MappedNameForwardFormat](/telemirror/messagefilters/messagefilters.py#L170) - Forward formatting filter with mapped channels name
+    - [KeywordReplaceFilter](/telemirror/messagefilters/messagefilters.py#L194) - Keyword replacing filter
+    - [SkipAllFilter](/telemirror/messagefilters.py#L219) - Skip all messages filter
+    - [SkipWithKeywordsFilter](/telemirror/messagefilters/messagefilters.py#L226) - Skip for keywords message text filter
+    - [RestrictSavingContentBypassFilter](/telemirror/messagefilters/restrictsavingfilter.py#L7) - `Saving content restriction` filter (not ready, PRs are welcome)
 
 ## Prepare
 0. It's better ***not to use your main account***. Register a new Telegram account
@@ -131,7 +133,7 @@
 
 ### Be careful with forwards from channels with [`restricted saving content`](https://telegram.org/blog/protected-content-delete-by-date-and-more). It may lead to an account ban. 
 
-If you want to bypass forward restriction, see [RestrictSavingContentBypassFilter sources](/telemirror/messagefilters.py#L257) to start.
+If you want to bypass forward restriction, see [RestrictSavingContentBypassFilter sources](/telemirror/messagefilters/restrictsavingfilter.py#L7) to start.
 
 ## Deploy
 
