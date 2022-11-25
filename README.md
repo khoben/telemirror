@@ -84,7 +84,6 @@
     ```
     </details>
 
-    <br/>
     For more flexible configurations, use yaml:
 
     <details>
@@ -127,7 +126,6 @@
                 ? t.me
     ```
     </details>
-    <br/>
 
 5. Make sure the account has joined source and target channels
 
@@ -137,11 +135,13 @@ If you want to bypass forward restriction, see [RestrictSavingContentBypassFilte
 
 ## Deploy
 
-### Host on Heroku:
+<details>
+  <summary><b>Heroku</b></summary>
+<br>
 
 [![Deploy](https://www.herokucdn.com/deploy/button.svg)](https://heroku.com/deploy?template=https://github.com/khoben/telemirror)
 
-or manually:
+### Manually:
 
 1. Clone project
 
@@ -176,6 +176,32 @@ or manually:
     heroku ps:scale run=1
     ```
 
+## Keep up-to-date with Heroku
+
+If you deployed manually, move to step 2.
+
+0. Get project to your PC:
+
+    ```bash
+    heroku git:clone -a {your app name}
+    ```
+1. Init upstream repo (this repository or its fork)
+
+    ```bash
+    git remote add origin https://github.com/khoben/telemirror
+    ```
+2. Get latest changes
+
+    ```bash
+    git pull origin master
+    ```
+3. Push latest changes to heroku
+
+    ```bash
+    git push heroku master -f
+    ```
+</details>
+
 ### Locally:
 1. Create and activate python virtual environment
 
@@ -193,29 +219,4 @@ or manually:
 
     ```bash
     python main.py
-    ```
-
-## Keep up-to-date with Heroku
-
-If you deployed manually, move to step 2.
-
-0. Get project to your PC:
-
-    ```bash
-    heroku git:clone -a {your app name}
-    ```
-1. Init upstream repo
-
-    ```bash
-    git remote add origin https://github.com/khoben/telemirror
-    ```
-2. Get latest changes
-
-    ```bash
-    git pull origin master
-    ```
-3. Push latest changes to heroku
-
-    ```bash
-    git push heroku master -f
     ```
