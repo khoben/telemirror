@@ -31,7 +31,7 @@ class EventHandlers:
 
         incoming_message_link: str = self.event_message_link(event)
 
-        self._logger.info(f'New message: {incoming_message_link}')
+        self._logger.info(f'[New message]: {incoming_message_link}')
 
         incoming_chat_id: int = event.chat_id
         incoming_message: EventMessage = event.message
@@ -39,7 +39,7 @@ class EventHandlers:
         try:
             outgoing_chats = self._chat_mapping.get(incoming_chat_id)
             if not outgoing_chats:
-                self._logger.warning(f'No target chats for {incoming_chat_id}')
+                self._logger.warning(f'[New message]: No target chats for chat#{incoming_chat_id}')
                 return
 
             reply_to_messages: dict[int, int] = {
@@ -59,7 +59,7 @@ class EventHandlers:
 
                 if proceed is False:
                     self._logger.info(
-                        f'Skipping message {incoming_message_link} for {outgoing_chat}')
+                        f'[New message]: Skipping message {incoming_message_link} for target chat#{outgoing_chat} by filter')
                     continue
 
                 outgoing_message = await self.send_message(
@@ -90,7 +90,7 @@ class EventHandlers:
             return
 
         incoming_message_link: str = self.event_message_link(event)
-        self._logger.info(f'New album: {incoming_message_link}')
+        self._logger.info(f'[New album]: {incoming_message_link}')
 
         incoming_album: List[EventMessage] = event.messages
         incoming_first_message: EventMessage = incoming_album[0]
@@ -99,7 +99,7 @@ class EventHandlers:
         try:
             outgoing_chats = self._chat_mapping.get(incoming_chat_id)
             if not outgoing_chats:
-                self._logger.warning(f'No target chats for {incoming_chat_id}')
+                self._logger.warning(f'[New album]: No target chats for chat#{incoming_chat_id}')
                 return
 
             reply_to_messages: dict[int, int] = {
@@ -130,7 +130,7 @@ class EventHandlers:
                 # Apply filters to first non-empty or first message
                 if proceed is False:
                     self._logger.info(
-                        f'Skipping album {incoming_message_link} for {outgoing_chat}')
+                        f'[New album]: Skipping message {incoming_message_link} for target chat#{outgoing_chat} by filter')
                     continue
 
                 idx: list[int] = []
@@ -171,13 +171,13 @@ class EventHandlers:
         incoming_chat: int = event.chat_id
         incoming_message_link: str = self.event_message_link(event)
 
-        self._logger.info(f'Edit message: {incoming_message_link}')
+        self._logger.info(f'[Edit message]: {incoming_message_link}')
 
         try:
             outgoing_messages = await self._database.get_messages(incoming_message.id, incoming_chat)
             if not outgoing_messages:
                 self._logger.warning(
-                    f'No target messages to edit for {incoming_message_link}')
+                    f'[Edit message]: No target messages to edit for {incoming_message_link}')
                 return
 
             for outgoing_message in outgoing_messages:
@@ -211,14 +211,14 @@ class EventHandlers:
         incoming_chat: int = event.chat_id
 
         self._logger.info(
-            f'Delete {len(deleted_ids)} messages from {incoming_chat}')
+            f'[Delete message]: Delete {len(deleted_ids)} messages from {incoming_chat}')
 
         try:
             for deleted_id in deleted_ids:
                 deleting_messages = await self._database.get_messages(deleted_id, incoming_chat)
                 if not deleting_messages:
                     self._logger.warning(
-                        f'No target messages for {incoming_chat} and message#{deleted_id}')
+                        f'[Delete message]: No target messages to delete for {incoming_chat}#{deleted_id}')
                     continue
 
                 for deleting_message in deleting_messages:
