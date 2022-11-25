@@ -39,7 +39,8 @@ class EventHandlers:
         try:
             outgoing_chats = self._chat_mapping.get(incoming_chat_id)
             if not outgoing_chats:
-                self._logger.warning(f'[New message]: No target chats for chat#{incoming_chat_id}')
+                self._logger.warning(
+                    f'[New message]: No target chats for chat#{incoming_chat_id}')
                 return
 
             reply_to_messages: dict[int, int] = {
@@ -99,7 +100,8 @@ class EventHandlers:
         try:
             outgoing_chats = self._chat_mapping.get(incoming_chat_id)
             if not outgoing_chats:
-                self._logger.warning(f'[New album]: No target chats for chat#{incoming_chat_id}')
+                self._logger.warning(
+                    f'[New album]: No target chats for chat#{incoming_chat_id}')
                 return
 
             reply_to_messages: dict[int, int] = {
@@ -151,11 +153,10 @@ class EventHandlers:
 
                 # Expect non-empty list of messages
                 if outgoing_messages and utils.is_list_like(outgoing_messages):
-                    for message_index, outgoing_message in enumerate(outgoing_messages):
-                        await self._database.insert(MirrorMessage(original_id=idx[message_index],
-                                                                  original_channel=incoming_chat_id,
-                                                                  mirror_id=outgoing_message.id,
-                                                                  mirror_channel=outgoing_chat))
+                    await self._database.insert_batch([MirrorMessage(original_id=idx[message_index],
+                                                                     original_channel=incoming_chat_id,
+                                                                     mirror_id=outgoing_message.id,
+                                                                     mirror_channel=outgoing_chat) for message_index, outgoing_message in enumerate(outgoing_messages)])
 
         except Exception as e:
             self._logger.error(e, exc_info=True)
@@ -214,29 +215,34 @@ class EventHandlers:
             f'[Delete message]: Delete {len(deleted_ids)} messages from {incoming_chat}')
 
         try:
-            for deleted_id in deleted_ids:
-                deleting_messages = await self._database.get_messages(deleted_id, incoming_chat)
-                if not deleting_messages:
-                    self._logger.warning(
-                        f'[Delete message]: No target messages to delete for {incoming_chat}#{deleted_id}')
+            deleting_messages = await self._database.get_messages_batch(deleted_ids, incoming_chat)
+            if not deleting_messages:
+                self._logger.warning(
+                    f'[Delete message]: No target messages to delete for chat#{incoming_chat}')
+                return
+
+            delete_per_channel: Dict[int, List[int]] = {}
+
+            for deleting_message in deleting_messages:
+                config = self._target_config.get(
+                    deleting_message.mirror_channel)
+
+                if config.disable_delete is True:
                     continue
 
-                for deleting_message in deleting_messages:
-                    try:
-                        config = self._target_config.get(
-                            deleting_message.mirror_channel)
+                delete_per_channel.setdefault(deleting_message.mirror_channel, [
+                ]).append(deleting_message.mirror_id)
 
-                        if config.disable_delete is True:
-                            continue
+            for channel_id, message_list in delete_per_channel.items():
+                try:
+                    await self.delete_messages(
+                        entity=channel_id,
+                        message_ids=message_list
+                    )
+                except Exception as e:
+                    self._logger.error(e, exc_info=True)
 
-                        await self.delete_messages(
-                            entity=deleting_message.mirror_channel,
-                            message_ids=deleting_message.mirror_id
-                        )
-                    except Exception as e:
-                        self._logger.error(e, exc_info=True)
-
-                await self._database.delete_messages(deleted_id, incoming_chat)
+            await self._database.delete_messages_batch(deleted_ids, incoming_chat)
 
         except Exception as e:
             self._logger.error(e, exc_info=True)

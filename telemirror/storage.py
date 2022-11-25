@@ -53,6 +53,15 @@ class Database(Protocol):
         raise NotImplementedError
 
     @abstractmethod
+    async def insert_batch(self: 'Database', entity: List[MirrorMessage]) -> None:
+        """Inserts `MirrorMessage` objects into database
+
+        Args:
+            entity (`List[MirrorMessage]`): List of `MirrorMessage` objects
+        """
+        raise NotImplementedError
+
+    @abstractmethod
     async def get_messages(self: 'Database', original_id: int, original_channel: int) -> List[MirrorMessage]:
         """
         Finds `MirrorMessage` objects with `original_id` and `original_channel` values
@@ -67,12 +76,37 @@ class Database(Protocol):
         raise NotImplementedError
 
     @abstractmethod
+    async def get_messages_batch(self: 'Database', original_ids: List[int], original_channel: int) -> List[MirrorMessage]:
+        """
+        Finds `MirrorMessage` objects with `original_id` and `original_channel` values
+
+        Args:
+            original_ids (`List[int]`): Original message IDs
+            original_channel (`int`): Source channel ID
+
+        Returns:
+            List[MirrorMessage]
+        """
+        raise NotImplementedError
+
+    @abstractmethod
     async def delete_messages(self: 'Database', original_id: int, original_channel: int) -> None:
         """
         Deletes `MirrorMessage` objects with `original_id` and `original_channel` values
 
         Args:
             original_id (`int`): Original message ID
+            original_channel (`int`): Source channel ID
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    async def delete_messages_batch(self: 'Database', original_ids: List[int], original_channel: int) -> None:
+        """
+        Deletes `MirrorMessage` objects with `original_id` and `original_channel` values
+
+        Args:
+            original_ids (`List[int]`): Original message IDs
             original_channel (`int`): Source channel ID
         """
         raise NotImplementedError
@@ -108,6 +142,15 @@ class InMemoryDatabase(Database):
         self.__stored.setdefault(self.__build_message_hash(
             entity.original_id, entity.original_channel), []).append(entity)
 
+    async def insert_batch(self: 'InMemoryDatabase', entity: List[MirrorMessage]) -> None:
+        """Inserts `MirrorMessage` objects into database
+
+        Args:
+            entity (`List[MirrorMessage]`): List of `MirrorMessage` objects
+        """
+        for e in entity:
+            await self.insert(e)
+
     async def get_messages(self: 'InMemoryDatabase', original_id: int, original_channel: int) -> List[MirrorMessage]:
         """
         Finds `MirrorMessage` objects with `original_id` and `original_channel` values
@@ -120,6 +163,22 @@ class InMemoryDatabase(Database):
             List[MirrorMessage]
         """
         return self.__stored.get(self.__build_message_hash(original_id, original_channel), [])
+
+    async def get_messages_batch(self: 'InMemoryDatabase', original_ids: List[int], original_channel: int) -> List[MirrorMessage]:
+        """
+        Finds `MirrorMessage` objects with `original_id` and `original_channel` values
+
+        Args:
+            original_ids (`List[int]`): Original message IDs
+            original_channel (`int`): Source channel ID
+
+        Returns:
+            List[MirrorMessage]
+        """
+        messages: List[MirrorMessage] = []
+        for idx in original_ids:
+            messages.extend(await self.get_messages(idx, original_channel))
+        return messages
 
     async def delete_messages(self: 'InMemoryDatabase', original_id: int, original_channel: int) -> None:
         """
@@ -134,6 +193,17 @@ class InMemoryDatabase(Database):
                 original_id, original_channel)]
         except KeyError:
             pass
+
+    async def delete_messages_batch(self: 'InMemoryDatabase', original_ids: List[int], original_channel: int) -> None:
+        """
+        Deletes `MirrorMessage` objects with `original_id` and `original_channel` values
+
+        Args:
+            original_ids (`List[int]`): Original message IDs
+            original_channel (`int`): Source channel ID
+        """
+        for idx in original_ids:
+            await self.delete_messages(idx, original_channel)
 
     def __build_message_hash(self: 'InMemoryDatabase', original_id: int, original_channel: int) -> str:
         """
@@ -204,6 +274,18 @@ class PostgresDatabase(Database):
                                 VALUES (%s, %s, %s, %s)
                                 """, (entity.original_id, entity.original_channel, entity.mirror_id, entity.mirror_channel,))
 
+    async def insert_batch(self: 'PostgresDatabase', entity: List[MirrorMessage]) -> None:
+        """Inserts `MirrorMessage` objects into database
+
+        Args:
+            entity (`List[MirrorMessage]`): List of `MirrorMessage` objects
+        """
+        async with self.__pg_cursor() as cursor:
+            await cursor.executemany("""
+                                INSERT INTO binding_id (original_id, original_channel, mirror_id, mirror_channel)
+                                VALUES (%s, %s, %s, %s)
+                                """, [(e.original_id, e.original_channel, e.mirror_id, e.mirror_channel,) for e in entity])
+
     async def get_messages(self: 'PostgresDatabase', original_id: int, original_channel: int) -> List[MirrorMessage]:
         """
         Finds `MirrorMessage` objects with `original_id` and `original_channel` values
@@ -227,6 +309,29 @@ class PostgresDatabase(Database):
             rows = await cursor.fetchall()
         return rows
 
+    async def get_messages_batch(self: 'PostgresDatabase', original_ids: List[int], original_channel: int) -> List[MirrorMessage]:
+        """
+        Finds `MirrorMessage` objects with `original_id` and `original_channel` values
+
+        Args:
+            original_ids (`List[int]`): Original message IDs
+            original_channel (`int`): Source channel ID
+
+        Returns:
+            List[MirrorMessage]
+        """
+        rows: List[MirrorMessage] = []
+        async with self.__pg_cursor() as cursor:
+            cursor.row_factory = class_row(MirrorMessage)
+            await cursor.execute("""
+                                SELECT original_id, original_channel, mirror_id, mirror_channel
+                                FROM binding_id
+                                WHERE original_id = ANY(%s)
+                                AND original_channel = %s
+                                """, (original_ids, original_channel,))
+            rows = await cursor.fetchall()
+        return rows
+
     async def delete_messages(self: 'PostgresDatabase', original_id: int, original_channel: int) -> None:
         """
         Deletes `MirrorMessage` objects with `original_id` and `original_channel` values
@@ -241,6 +346,21 @@ class PostgresDatabase(Database):
                                 WHERE original_id = %s
                                 AND original_channel = %s
                                 """, (original_id, original_channel,))
+
+    async def delete_messages_batch(self: 'PostgresDatabase', original_ids: List[int], original_channel: int) -> None:
+        """
+        Deletes `MirrorMessage` objects with `original_id` and `original_channel` values
+
+        Args:
+            original_ids (`List[int]`): Original message IDs
+            original_channel (`int`): Source channel ID
+        """
+        async with self.__pg_cursor() as cursor:
+            await cursor.execute("""
+                                DELETE FROM binding_id
+                                WHERE original_id = ANY(%s)
+                                AND original_channel = %s
+                                """, (original_ids, original_channel,))
 
     async def __create_binding_if_not_exists(self: 'PostgresDatabase'):
         """Create binding table if not exists"""
