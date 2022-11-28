@@ -1,4 +1,4 @@
-telethon==1.25.4
+telethon==1.26.0
 cryptg==0.4.0
 psycopg[binary,pool]==3.1.4
 python-decouple==3.6
