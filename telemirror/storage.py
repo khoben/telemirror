@@ -39,9 +39,12 @@ class Database(Protocol):
     """
 
     @abstractmethod
-    async def async_init(self: 'Database') -> 'Database':
+    async def _async__init__(self: 'Database') -> 'Database':
         """Async initializer"""
         raise NotImplementedError
+
+    def __await__(self):
+        return self._async__init__().__await__()
 
     @abstractmethod
     async def insert(self: 'Database', entity: MirrorMessage) -> None:
@@ -130,7 +133,7 @@ class InMemoryDatabase(Database):
         self.__stored = LimitedDict[str, List[MirrorMessage]](
             capacity=max_capacity)
 
-    async def async_init(self: 'InMemoryDatabase') -> 'InMemoryDatabase':
+    async def _async__init__(self: 'InMemoryDatabase') -> 'InMemoryDatabase':
         return self
 
     async def insert(self: 'InMemoryDatabase', entity: MirrorMessage) -> None:
@@ -256,7 +259,7 @@ class PostgresDatabase(Database):
         self.__min_conn = min_conn
         self.__max_conn = max_conn
 
-    async def async_init(self: 'PostgresDatabase') -> 'PostgresDatabase':
+    async def _async__init__(self: 'PostgresDatabase') -> 'PostgresDatabase':
         self.connection_pool = AsyncConnectionPool(
             conninfo=self.__conn_info, min_size=self.__min_conn, max_size=self.__max_conn)
         await self.__create_binding_if_not_exists()

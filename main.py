@@ -13,7 +13,7 @@ async def init_telemirror(logger: logging.Logger, database: Database):
         api_hash=API_HASH,
         chat_mapping=CHAT_MAPPING,
         target_config=TARGET_CONFIG,
-        database=await database.async_init(),
+        database=await database,
         logger=logger
     ).run()
 
