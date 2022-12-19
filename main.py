@@ -18,19 +18,38 @@ async def init_telemirror(logger: logging.Logger, database: Database):
     ).run()
 
 
+def configure_logging(logger_name: str, log_level: str) -> logging.Logger:
+    logger = logging.getLogger(logger_name)
+    logger.setLevel(log_level)
+
+    if not logger.handlers:
+        import sys
+
+        handler = logging.StreamHandler(sys.stdout)
+        handler.setLevel(logging.DEBUG)
+        handler.setFormatter(
+            logging.Formatter(
+                "%(levelname)-5s %(asctime)s [%(filename)s:%(lineno)d]:%(name)s: %(message)s"
+            )
+        )
+
+        logger.addHandler(handler)
+
+    return logger
+
+
 def main():
     import asyncio
     import sys
 
-    logging.basicConfig()
-    logger = logging.getLogger(__name__)
-    logger.setLevel(level=LOG_LEVEL)
+    logger = configure_logging('telemirror', LOG_LEVEL)
 
     if USE_MEMORY_DB:
         database = InMemoryDatabase()
     else:
         database = PostgresDatabase(connection_string=DB_URL)
         if sys.platform == "win32":
+            # required by psycopg async pool
             asyncio.set_event_loop_policy(
                 asyncio.WindowsSelectorEventLoopPolicy())
 
