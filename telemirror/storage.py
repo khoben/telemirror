@@ -6,7 +6,7 @@ from typing import List, Protocol
 from psycopg.rows import class_row
 from psycopg_pool import AsyncConnectionPool
 
-from .misc.limiteddict import LimitedDict
+from .misc.lrucache import LRUCache
 
 
 @dataclass
@@ -130,7 +130,7 @@ class InMemoryDatabase(Database):
     MAX_CAPACITY = 100
 
     def __init__(self: 'InMemoryDatabase', max_capacity: int = MAX_CAPACITY) -> 'InMemoryDatabase':
-        self.__stored = LimitedDict[str, List[MirrorMessage]](
+        self.__storage = LRUCache[str, List[MirrorMessage]](
             capacity=max_capacity)
 
     async def _async__init__(self: 'InMemoryDatabase') -> 'InMemoryDatabase':
@@ -142,7 +142,7 @@ class InMemoryDatabase(Database):
         Args:
             entity (`MirrorMessage`): `MirrorMessage` object
         """
-        self.__stored.setdefault(self.__build_message_hash(
+        self.__storage.setdefault(self.__build_message_hash(
             entity.original_id, entity.original_channel), []).append(entity)
 
     async def insert_batch(self: 'InMemoryDatabase', entity: List[MirrorMessage]) -> None:
@@ -165,7 +165,7 @@ class InMemoryDatabase(Database):
         Returns:
             List[MirrorMessage]
         """
-        return self.__stored.get(self.__build_message_hash(original_id, original_channel), [])
+        return self.__storage.get(self.__build_message_hash(original_id, original_channel), [])
 
     async def get_messages_batch(self: 'InMemoryDatabase', original_ids: List[int], original_channel: int) -> List[MirrorMessage]:
         """
@@ -192,7 +192,7 @@ class InMemoryDatabase(Database):
             original_channel (`int`): Source channel ID
         """
         try:
-            del self.__stored[self.__build_message_hash(
+            del self.__storage[self.__build_message_hash(
                 original_id, original_channel)]
         except KeyError:
             pass

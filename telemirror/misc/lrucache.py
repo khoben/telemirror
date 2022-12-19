@@ -1,7 +1,7 @@
 import collections
 
 
-class LimitedDict(collections.OrderedDict):
+class LRUCache(collections.OrderedDict):
     """
     Dict with a limited length, ejecting LRUs as needed.
     """
