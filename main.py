@@ -1,12 +1,29 @@
 import logging
 
-from config import (API_HASH, API_ID, DB_URL, LOG_LEVEL, SESSION_STRING,
-                    USE_MEMORY_DB, TARGET_CONFIG, CHAT_MAPPING)
+from aiohttp import web
+
+from config import (API_HASH, API_ID, CHAT_MAPPING, DB_URL, LOG_LEVEL,
+                    SESSION_STRING, TARGET_CONFIG, USE_MEMORY_DB)
 from telemirror.mirroring import MirrorTelegramClient
 from telemirror.storage import Database, InMemoryDatabase, PostgresDatabase
 
 
+async def serve_health_endpoint(host: str, port: int) -> None:
+    async def health(request):
+        return web.Response(text="OK")
+
+    app = web.Application()
+    app.add_routes([web.get('/', health)])
+
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, host, port)
+    await site.start()
+
+
 async def init_telemirror(logger: logging.Logger, database: Database):
+    await serve_health_endpoint(host='0.0.0.0', port=8000)
+
     await MirrorTelegramClient(
         SESSION_STRING,
         api_id=API_ID,
