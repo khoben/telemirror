@@ -5,7 +5,7 @@
 - Listen to update events (new message, message edited, message deleted and etc)
 - Live forwarding and updating messages
 - Flexible mapping of source and target channels/chats (one-to-one, many-to-one, many-to-many)
-- Configurable incoming message filters:
+- Configurable incoming message filters (will be applied to target channels):
     - [CompositeMessageFilter](/telemirror/messagefilters/base.py#L28) - Composite filter that sequentially applies other filters
     - [EmptyMessageFilter](/telemirror/messagefilters/messagefilters.py#L13) - Do nothing with message
     - [SkipUrlFilter](/telemirror/messagefilters/messagefilters.py#L20) - Skip messages with URLs
@@ -84,7 +84,7 @@
     ```
     </details>
 
-    For more flexible configurations, use yaml:
+    For more flexible configurations (setup directions and filters), use yaml:
 
     <details>
     <summary><b>mirror.config.yml</b> overview</summary>
@@ -115,7 +115,8 @@
     
     # (Optional) Targets config
     targets:
-      - id: -1001
+        # Config will be applied to target channel with id=-100203
+      - id: -100203
         # Overwrite global settings
         disable_edit: false
         disable_delete: false
