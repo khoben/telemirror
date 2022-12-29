@@ -1,11 +1,12 @@
 import logging
 from typing import Dict, List, Union
 
-from config import TargetConfig
-from telethon import TelegramClient, events, utils
+from telethon import TelegramClient, errors, events, utils
 from telethon.extensions import markdown
 from telethon.sessions import StringSession
 from telethon.tl import types
+
+from config import TargetConfig
 
 from .hints import EventLike, EventMessage
 from .storage import Database, MirrorMessage
@@ -328,14 +329,23 @@ class MirrorTelegramClient(TelegramClient, Mirroring):
 
     async def run(self: 'MirrorTelegramClient') -> None:
         """Start channels mirroring"""
-        await self.start()
-        if await self.is_user_authorized():
-            me = await self.get_me()
-            self._logger.info(
-                f'Logged in as {utils.get_display_name(me)} ({me.phone})')
-            self._logger.info(
-                f'Channel mirroring has started with config:\n{self.printable_config()}')
-            await self.run_until_disconnected()
-        else:
-            raise RuntimeError(
-                "There is no authorization for the user, try restart or get a new session key (run login.py)")
+        try:
+            await self.start()
+            if await self.is_user_authorized():
+                me = await self.get_me()
+                self._logger.info(
+                    f'Logged in as {utils.get_display_name(me)} ({me.phone})')
+                self._logger.info(
+                    f'Channel mirroring has started with config:\n{self.printable_config()}')
+                await self.run_until_disconnected()
+            else:
+                raise RuntimeError(
+                    "There is no authorization for the user, try restart or get a new session key (run login.py)")
+        except (errors.UserDeactivatedBanError, errors.UserDeactivatedError):
+            self._logger.critical("Account banned/deactivated by Telegram. See https://github.com/lonamiwebs/telethon/issues/824")
+        except errors.PhoneNumberBannedError:
+            self._logger.critical("Phone number banned/deactivated by Telegram. See https://github.com/lonamiwebs/telethon/issues/824")
+        except (errors.SessionExpiredError, errors.SessionRevokedError):
+            self._logger.critical("The user's session has expired, try to get a new session key (run login.py)")
+        finally:
+            await self.disconnect()
