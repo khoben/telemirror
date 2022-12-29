@@ -22,7 +22,7 @@ class EventHandlers:
             return
 
         # Skip 'restricted saving content' enabled
-        if event.message.chat.noforwards:
+        if event.message.chat and event.message.chat.noforwards:
             self._logger.warning(
                 f'Forwards from channel ({event.chat_id}) with `restricted saving content` '
                 f'enabled are not supported. See https://github.com/khoben/telemirror#be-careful-with-forwards-from-'
@@ -83,7 +83,7 @@ class EventHandlers:
         """Album event handler"""
 
         # Skip 'restricted saving content' enabled
-        if event.messages[0].chat.noforwards:
+        if event.messages[0].chat and event.messages[0].chat.noforwards:
             self._logger.warning(
                 f'Forwards from channel ({event.chat_id}) with `restricted saving content` '
                 f'enabled are not supported. See https://github.com/khoben/telemirror#be-careful-with-forwards-from-'
