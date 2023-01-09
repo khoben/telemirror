@@ -211,7 +211,13 @@ class ForwardFormatFilter(ChannelName, MessageLink, CopyMessage, MessageFilter):
         return True, filtered_message
 
 
-class KeywordReplaceFilter(CopyMessage, MessageFilter):
+class WordBound:
+    """Bound word regex
+    """
+    BOUNDARY_REGEX = r'(?:(?<![^\s])(?=[^\s])|(?<=[^\s])(?![^\s]))'
+
+
+class KeywordReplaceFilter(WordBound, CopyMessage, MessageFilter):
     """Filter that replaces keywords
 
     Args:
@@ -219,7 +225,8 @@ class KeywordReplaceFilter(CopyMessage, MessageFilter):
     """
 
     def __init__(self, keywords: dict[str, str]) -> None:
-        self._keywords = {f'\\b{k}\\b': v for k, v in keywords.items()}
+        self._keywords = {
+            f'{self.BOUNDARY_REGEX}{k}{self.BOUNDARY_REGEX}': v for k, v in keywords.items()}
 
     async def process(self, message: EventMessage) -> Tuple[bool, EventMessage]:
         filtered_message = self.copy_message(message)
@@ -228,11 +235,27 @@ class KeywordReplaceFilter(CopyMessage, MessageFilter):
 
         if unparsed_text:
             for k, v in self._keywords.items():
-                unparsed_text = re.sub(k, v, unparsed_text, flags=re.IGNORECASE)
+                unparsed_text = re.sub(
+                    k, v, unparsed_text, flags=re.IGNORECASE)
 
             filtered_message.text = unparsed_text
 
         return True, filtered_message
+
+
+class SkipWithKeywordsFilter(WordBound, MessageFilter):
+    """Skips message if some keyword found
+    """
+
+    def __init__(self, keywords: set[str]) -> None:
+        self._regex = re.compile(
+            '|'.join([f'{self.BOUNDARY_REGEX}{k}{self.BOUNDARY_REGEX}' for k in keywords]), flags=re.IGNORECASE)
+
+    async def process(self, message: EventMessage) -> Tuple[bool, EventMessage]:
+        if self._regex.search(message.message):
+            return False, message
+        return True, message
+
 
 class SkipAllFilter(MessageFilter):
     """Skips all messages
@@ -240,19 +263,6 @@ class SkipAllFilter(MessageFilter):
     async def process(self, message: EventMessage) -> Tuple[bool, EventMessage]:
         return False, message
 
-
-class SkipWithKeywordsFilter(MessageFilter):
-    """Skips message if some keyword found
-    """
-
-    def __init__(self, keywords: set[str]) -> None:
-        self._regex = re.compile(
-            '|'.join([f'\\b{k}\\b' for k in keywords]), flags=re.IGNORECASE)
-
-    async def process(self, message: EventMessage) -> Tuple[bool, EventMessage]:
-        if self._regex.search(message.message):
-            return False, message
-        return True, message
 
 class RestrictSavingContentBypassFilter(MessageFilter):
     """Filter that bypasses `saving content restriction`
