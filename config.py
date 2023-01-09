@@ -99,7 +99,7 @@ def cast_env_keyword_replace(v: str) -> dict[str, str]:
 
     import re
 
-    matches = re.findall(r'(\w+):(\w*)', v, re.MULTILINE)
+    matches = re.findall(r'"?([^"]*)"?:"?([^"]*)"?', v, re.MULTILINE)
     for match in matches:
         mapping[match[0]] = match[1]
     return mapping
