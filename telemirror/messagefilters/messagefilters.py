@@ -201,8 +201,8 @@ class KeywordReplaceFilter(WhitespacedWordBound, CopyMessage, MessageFilter):
     """
 
     def __init__(self, keywords: dict[str, str]) -> None:
-        self._keywords = {re.compile(f'{self.BOUNDARY_REGEX}{k}{self.BOUNDARY_REGEX}',
-                                     flags=re.IGNORECASE): v for k, v in keywords.items()}
+        self._keywords_mapping = [(re.compile(f'{self.BOUNDARY_REGEX}{k}{self.BOUNDARY_REGEX}',
+                                      flags=re.IGNORECASE), v) for k, v in keywords.items()]
 
     async def process(self, message: EventMessage) -> Tuple[bool, EventMessage]:
         filtered_message = self.copy_message(message)
@@ -210,7 +210,7 @@ class KeywordReplaceFilter(WhitespacedWordBound, CopyMessage, MessageFilter):
         unparsed_text = filtered_message.text
 
         if unparsed_text:
-            for pattern, replace_to in self._keywords.items():
+            for pattern, replace_to in self._keywords_mapping:
                 unparsed_text = pattern.sub(replace_to, unparsed_text)
 
             filtered_message.text = unparsed_text
