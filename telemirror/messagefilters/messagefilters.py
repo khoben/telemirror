@@ -1,11 +1,11 @@
 import re
-from typing import List, Optional, Set, Tuple
+from typing import List, Optional, Set, Tuple, Union
 
 from telethon import types, utils
 from telethon.extensions import markdown as md_parser
 
 from ..hints import EventMessage
-from ..misc.uri import UriGuard
+from ..misc.urlmatcher import UrlMatcher
 from .base import MessageFilter
 from .mixins import (ChannelName, CopyMessage, MappedChannelName, MessageLink,
                      WhitespacedWordBound)
@@ -50,30 +50,46 @@ class UrlMessageFilter(CopyMessage, MessageFilter):
 
     Args:
         placeholder (`str`, optional): 
-            URL placeholder. Defaults to '***'.
-
-        filter_mention (`bool`, optional): 
-            Enable filter text mentions (@channel). Defaults to True.
+            URLs and mentions placeholder. Defaults to '***'.
 
         blacklist (`Set[str]`, optional): 
-            URLs blacklist -- remove only these URLs. Defaults to empty set.
+            URLs blacklist -- remove only these URLs.
+            Defaults to empty set (removes all URLs).
 
         whitelist (`Set[str]`, optional): 
             URLs whitelist -- remove all URLs except these. 
             Will be applied after the `blacklist`. Defaults to empty set.
+
+        filter_mention (`Union[bool, Set[str]]`, optional): 
+            Filter text mentions (e.g. @channel, @nickname).
+            Defaults to False.
+
+        filter_by_id_mention (`bool`, optional): 
+            Filter all mentions without nicknames (by user id).
+            Defaults to False.
     """
 
     def __init__(
         self: 'UrlMessageFilter',
         placeholder: str = '***',
-        filter_mention: bool = True,
         blacklist: Set[str] = set(),
-        whitelist: Set[str] = set()
+        whitelist: Set[str] = set(),
+        filter_mention: Union[bool, Set[str]] = False,
+        filter_by_id_mention: bool = False
     ) -> None:
         self._placeholder = placeholder
         self._placeholder_len = len(placeholder)
-        self._filter_mention = filter_mention
-        self._uri_guard = UriGuard(blacklist, whitelist)
+
+        self._url_matcher = UrlMatcher(blacklist, whitelist)
+
+        self._filter_mention = None
+        self._mention_blacklist = None
+        if isinstance(filter_mention, bool):
+            self._filter_mention = filter_mention
+        else:
+            self._mention_blacklist = filter_mention
+
+        self._filter_by_id_mention = filter_by_id_mention
 
     async def process(self, message: EventMessage) -> Tuple[bool, EventMessage]:
         filtered_message = self.copy_message(message)
@@ -81,30 +97,39 @@ class UrlMessageFilter(CopyMessage, MessageFilter):
         if filtered_message.entities:
             good_entities: List[types.TypeMessageEntity] = []
             offset_error = 0
-            for e, entity_text in filtered_message.get_entities_text():
-                e.offset += offset_error
+            for entity, entity_text in filtered_message.get_entities_text():
+                entity.offset += offset_error
                 # Filter URLs and mentions
-                if (isinstance(e, types.MessageEntityUrl) and self._uri_guard.is_should_filtered(entity_text)) \
-                        or (isinstance(e, types.MessageEntityMention) and self._filter_mention):
+                if (isinstance(entity, types.MessageEntityUrl) and self._url_matcher.match(entity_text)) \
+                        or (isinstance(entity, types.MessageEntityMention) and self._match_mention(entity_text)):
                     filtered_message.message = filtered_message.message.replace(
                         entity_text, self._placeholder, 1)
-                    offset_error += self._placeholder_len - e.length
+                    offset_error += self._placeholder_len - entity.length
                     continue
 
                 # Keep only 'good' entities
-                if not ((isinstance(e, types.MessageEntityTextUrl) and self._uri_guard.is_should_filtered(e.url)) or
-                        (isinstance(e, types.MessageEntityMentionName) and self._filter_mention)):
-                    good_entities.append(e)
+                if not ((isinstance(entity, types.MessageEntityTextUrl) and self._url_matcher.match(entity.url)) or
+                        (isinstance(entity, types.MessageEntityMentionName) and self._filter_by_id_mention)):
+                    good_entities.append(entity)
 
             filtered_message.entities = good_entities
 
         # Filter link preview
         if isinstance(filtered_message.media, types.MessageMediaWebPage) and \
             isinstance(filtered_message.media.webpage, types.WebPage) and \
-                self._uri_guard.is_should_filtered(filtered_message.media.webpage.url):
+                self._url_matcher.match(filtered_message.media.webpage.url):
             filtered_message.media = None
 
         return True, filtered_message
+
+    def _match_mention(self, mention: str) -> bool:
+        if self._filter_mention is not None:
+            return self._filter_mention
+
+        if self._mention_blacklist and mention not in self._mention_blacklist:
+            return False
+
+        return True
 
 
 class ForwardFormatFilter(ChannelName, MessageLink, CopyMessage, MessageFilter):
@@ -202,7 +227,7 @@ class KeywordReplaceFilter(WhitespacedWordBound, CopyMessage, MessageFilter):
 
     def __init__(self, keywords: dict[str, str]) -> None:
         self._keywords_mapping = [(re.compile(f'{self.BOUNDARY_REGEX}{k}{self.BOUNDARY_REGEX}',
-                                      flags=re.IGNORECASE), v) for k, v in keywords.items()]
+                                              flags=re.IGNORECASE), v) for k, v in keywords.items()]
 
     async def process(self, message: EventMessage) -> Tuple[bool, EventMessage]:
         filtered_message = self.copy_message(message)
