@@ -14,11 +14,13 @@ class MappedChannelName:
         """Get chat/channel display name"""
         return self.__mapped.get(message.chat_id, utils.get_display_name(message.chat))
 
+
 class ChannelName:
 
     def channel_name(self, message: EventMessage) -> Optional[str]:
         """Get chat/channel display name"""
         return utils.get_display_name(message.chat)
+
 
 class MessageLink:
 
@@ -80,3 +82,9 @@ class CopyMessage:
         copy._chat = message._chat
         copy._client = message._client
         return copy
+
+
+class WhitespacedWordBound:
+    """Whitespaced word's bounds regex
+    """
+    BOUNDARY_REGEX = r'(?:(?<![^\s])(?=[^\s])|(?<=[^\s])(?![^\s]))'

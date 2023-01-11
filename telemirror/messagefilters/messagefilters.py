@@ -7,7 +7,8 @@ from telethon.extensions import markdown as md_parser
 from ..hints import EventMessage
 from ..misc.uri import UriGuard
 from .base import MessageFilter
-from .mixins import ChannelName, CopyMessage, MappedChannelName, MessageLink
+from .mixins import (ChannelName, CopyMessage, MappedChannelName, MessageLink,
+                     WhitespacedWordBound)
 
 
 class EmptyMessageFilter(MessageFilter):
@@ -192,7 +193,7 @@ class MappedNameForwardFormat(MappedChannelName, ForwardFormatFilter):
         ForwardFormatFilter.__init__(self, format)
 
 
-class KeywordReplaceFilter(CopyMessage, MessageFilter):
+class KeywordReplaceFilter(WhitespacedWordBound, CopyMessage, MessageFilter):
     """Filter that replaces keywords
 
     Args:
@@ -200,7 +201,8 @@ class KeywordReplaceFilter(CopyMessage, MessageFilter):
     """
 
     def __init__(self, keywords: dict[str, str]) -> None:
-        self._keywords = {f'\\b{k}\\b': v for k, v in keywords.items()}
+        self._keywords = {re.compile(f'{self.BOUNDARY_REGEX}{k}{self.BOUNDARY_REGEX}',
+                                     flags=re.IGNORECASE): v for k, v in keywords.items()}
 
     async def process(self, message: EventMessage) -> Tuple[bool, EventMessage]:
         filtered_message = self.copy_message(message)
@@ -208,13 +210,26 @@ class KeywordReplaceFilter(CopyMessage, MessageFilter):
         unparsed_text = filtered_message.text
 
         if unparsed_text:
-            for k, v in self._keywords.items():
-                unparsed_text = re.sub(
-                    k, v, unparsed_text, flags=re.IGNORECASE)
+            for pattern, replace_to in self._keywords.items():
+                unparsed_text = pattern.sub(replace_to, unparsed_text)
 
             filtered_message.text = unparsed_text
 
         return True, filtered_message
+
+
+class SkipWithKeywordsFilter(WhitespacedWordBound, MessageFilter):
+    """Skips message if some keyword found
+    """
+
+    def __init__(self, keywords: set[str]) -> None:
+        self._regex = re.compile(
+            '|'.join([f'{self.BOUNDARY_REGEX}{k}{self.BOUNDARY_REGEX}' for k in keywords]), flags=re.IGNORECASE)
+
+    async def process(self, message: EventMessage) -> Tuple[bool, EventMessage]:
+        if self._regex.search(message.message):
+            return False, message
+        return True, message
 
 
 class SkipAllFilter(MessageFilter):
@@ -222,17 +237,3 @@ class SkipAllFilter(MessageFilter):
     """
     async def process(self, message: EventMessage) -> Tuple[bool, EventMessage]:
         return False, message
-
-
-class SkipWithKeywordsFilter(MessageFilter):
-    """Skips message if some keyword found
-    """
-
-    def __init__(self, keywords: set[str]) -> None:
-        self._regex = re.compile(
-            '|'.join([f'\\b{k}\\b' for k in keywords]), flags=re.IGNORECASE)
-
-    async def process(self, message: EventMessage) -> Tuple[bool, EventMessage]:
-        if self._regex.search(message.message):
-            return False, message
-        return True, message
