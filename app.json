@@ -32,6 +32,10 @@
             "description": "Comma-separated list words to stop forwarding. Leave empty to disable. Example: stop,word",
             "required": false
         },
+        "URL_FILTER_LIST": {
+            "description": "Comma-separated list urls to remove. Leave empty to disable. Example: google.com,t.me/test",
+            "required": false
+        },
         "KEYWORD_REPLACE_MAP": {
             "description": "Comma-separated list keywords to replace. Leave empty to disable. Example: cat:dog,one:two",
             "required": false

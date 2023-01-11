@@ -9,7 +9,8 @@ from custom import (LinkedChatFilter, MappedNameForwardFormat, Source, Target,
                     UserCommentFormatFilter)
 from telemirror.messagefilters import (CompositeMessageFilter,
                                        KeywordReplaceFilter, MessageFilter,
-                                       SkipAllFilter, SkipWithKeywordsFilter)
+                                       SkipAllFilter, SkipWithKeywordsFilter,
+                                       UrlMessageFilter)
 from telemirror.storage import Database
 
 # telegram app id
@@ -112,6 +113,12 @@ KEYWORD_DO_NOT_FORWARD_MAP: set[str] = config(
 
 if KEYWORD_DO_NOT_FORWARD_MAP:
     filters.append(SkipWithKeywordsFilter(KEYWORD_DO_NOT_FORWARD_MAP))
+
+URL_FILTER_LIST: set[str] = config(
+    "URL_FILTER_LIST", cast=Csv(post_process=set), default="")
+
+if URL_FILTER_LIST:
+    filters.append(UrlMessageFilter(placeholder='', blacklist=URL_FILTER_LIST))
 
 KEYWORD_REPLACE_MAP: dict[str, str] = config(
     "KEYWORD_REPLACE_MAP", cast=cast_env_keyword_replace, default="")
