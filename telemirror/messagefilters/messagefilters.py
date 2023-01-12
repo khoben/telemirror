@@ -219,8 +219,7 @@ class MappedNameForwardFormat(MappedChannelName, ForwardFormatFilter):
 
 
 class KeywordReplaceFilter(WhitespacedWordBound, CopyMessage, MessageFilter):
-    """Filter that replaces keywords
-
+    """Filter that maps keywords
     Args:
         keywords (dict[str, str]): Keywords map
     """
@@ -231,14 +230,36 @@ class KeywordReplaceFilter(WhitespacedWordBound, CopyMessage, MessageFilter):
 
     async def process(self, message: EventMessage) -> Tuple[bool, EventMessage]:
         filtered_message = self.copy_message(message)
+        unparsed_text = filtered_message.message
 
-        unparsed_text = filtered_message.text
+        if filtered_message.entities:
+            entities = filtered_message.entities
+        else:
+            entities = []
 
         if unparsed_text:
-            for pattern, replace_to in self._keywords_mapping:
-                unparsed_text = pattern.sub(replace_to, unparsed_text)
 
-            filtered_message.text = unparsed_text
+            replace_to = ''
+
+            def sub_middleware(match: re.Match) -> str:
+                start_match = match.start()
+                len_match = match.end() - start_match
+                len_replace_to = len(replace_to)
+                diff = len_replace_to - len_match
+
+                # after: change offset
+                for e in entities:
+                    if e.offset == start_match and e.length == len_match:
+                        e.length = len_replace_to
+                    elif e.offset > start_match:
+                        e.offset += diff
+
+                return replace_to
+
+            for pattern, replace_to in self._keywords_mapping:
+                unparsed_text = pattern.sub(sub_middleware, unparsed_text)
+
+            filtered_message.message = unparsed_text
 
         return True, filtered_message
 
