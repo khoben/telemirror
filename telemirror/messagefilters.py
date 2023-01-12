@@ -238,27 +238,47 @@ class WordBound:
 
 
 class KeywordReplaceFilter(WordBound, CopyMessage, MessageFilter):
-    """Filter that replaces keywords
-
+    """Filter that maps keywords
     Args:
         keywords (dict[str, str]): Keywords map
     """
 
     def __init__(self, keywords: dict[str, str]) -> None:
-        self._keywords = {
-            f'{self.BOUNDARY_REGEX}{k}{self.BOUNDARY_REGEX}': v for k, v in keywords.items()}
+        self._keywords_mapping = [(re.compile(f'{self.BOUNDARY_REGEX}{k}{self.BOUNDARY_REGEX}',
+                                              flags=re.IGNORECASE), v) for k, v in keywords.items()]
 
     async def process(self, message: EventMessage) -> Tuple[bool, EventMessage]:
         filtered_message = self.copy_message(message)
+        unparsed_text = filtered_message.message
 
-        unparsed_text = filtered_message.text
+        if filtered_message.entities:
+            entities = filtered_message.entities
+        else:
+            entities = []
 
         if unparsed_text:
-            for k, v in self._keywords.items():
-                unparsed_text = re.sub(
-                    k, v, unparsed_text, flags=re.IGNORECASE)
 
-            filtered_message.text = unparsed_text
+            replace_to = ''
+
+            def sub_middleware(match: re.Match) -> str:
+                start_match = match.start()
+                len_match = match.end() - start_match
+                len_replace_to = len(replace_to)
+                diff = len_replace_to - len_match
+
+                # after: change offset
+                for e in entities:
+                    if e.offset == start_match and e.length == len_match:
+                        e.length = len_replace_to
+                    elif e.offset > start_match:
+                        e.offset += diff
+
+                return replace_to
+
+            for pattern, replace_to in self._keywords_mapping:
+                unparsed_text = pattern.sub(sub_middleware, unparsed_text)
+
+            filtered_message.message = unparsed_text
 
         return True, filtered_message
 
