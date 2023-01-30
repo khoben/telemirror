@@ -1,24 +1,11 @@
-# Telegram forwarder from channels (make channel mirrors) via Telegram Client API (telethon)
+# Telegram message forwarder (client API)
 
 ### Functionality
-- No need to be added by the channel's admin
-- Listen to update events (new message, message edited, message deleted and etc)
 - Live forwarding and updating messages
-- Flexible mapping of source and target channels/chats (one-to-one, many-to-one, many-to-many)
-- Configurable incoming message filters (will be applied to target channels):
-    - [CompositeMessageFilter](/telemirror/messagefilters/base.py#L28) - Composite filter that sequentially applies other filters
-    - [EmptyMessageFilter](/telemirror/messagefilters/messagefilters.py#L13) - Do nothing with message
-    - [SkipUrlFilter](/telemirror/messagefilters/messagefilters.py#L20) - Skip messages with URLs
-    - [UrlMessageFilter](/telemirror/messagefilters/messagefilters.py#L47) - URLs filter
-    - [ForwardFormatFilter](/telemirror/messagefilters/messagefilters.py#L109) - Forward formatting filter
-    - [MappedNameForwardFormat](/telemirror/messagefilters/messagefilters.py#L171) - Forward formatting filter with mapped channels name
-    - [KeywordReplaceFilter](/telemirror/messagefilters/messagefilters.py#L195) - Keyword replacing filter
-    - [SkipAllFilter](/telemirror//messagefilters/messagefilters.py#L220) - Skip all messages filter
-    - [SkipWithKeywordsFilter](/telemirror/messagefilters/messagefilters.py#L227) - Skip for keywords message text filter
-    - [RestrictSavingContentBypassFilter](/telemirror/messagefilters/restrictsavingfilter.py#L7) - `Saving content restriction` filter (not ready, PRs are welcome)
+- Source and target channels/chats (one-to-one, many-to-one, many-to-many) mapping
+- Incoming message filters (will be applied to target channels)
 
 ## Prepare
-0. It's better ***not to use your main account***. Register a new Telegram account
 
 1. [Create Telegram App](https://my.telegram.org/apps)
 
@@ -26,21 +13,15 @@
 
     ![Telegram API Credentials](/README.md-images/telegramapp.png)
 
-3. Setup Postgres database or use InMemoryDatabase with `USE_MEMORY_DB=true` parameter in `.env` file
+3. Setup Postgres database or use `InMemoryDatabase` with `USE_MEMORY_DB=true` parameter in `.env` file
 
 4. Fill [.env-example](.env-example) with your data and rename it to `.env`
 
-    ❗ Note: never push your `.env`/`.yml` files with real crendential to a public repo. Use a separate branch (eg, `heroku-branch`) with `.env`/`.yml` files to push to git-based deployment system like Heroku:
-
-    ```bash
-    git push heroku heroku-branch:master
-    ```
-
     [.env-example](.env-example) contains the minimum environment configuration to run with an in-memory database.
 
-    **SESSION_STRING** can be obtained by running [login.py](login.py) locally (on your PC with installed python 3.9+) with putted **API_ID** and **API_HASH** before.
+    **SESSION_STRING** can be obtained by running [login.py](login.py) with provided **API_ID** and **API_HASH** environment variables. **DON'T USE** your own account.
 
-    Channels ID can be fetched by using [@messageinformationsbot](https://t.me/messageinformationsbot) Telegram bot (just send it a message from the desired channel).
+    Channels ID can be fetched by using [@messageinformationsbot](https://t.me/messageinformationsbot) Telegram bot.
     
     <details>
     <summary><b>.env overview</b></summary>
@@ -128,21 +109,22 @@
     ```
     </details>
 
+    ❗ Note: never push your `.env`/`.yml` files with real crendential to a public repo. Use a separate branch (eg, `heroku-branch`) with `.env`/`.yml` files to push to git-based deployment system like Heroku.
+
 5. Make sure the account has joined source and target channels
 
-### Be careful with forwards from channels with [`restricted saving content`](https://telegram.org/blog/protected-content-delete-by-date-and-more). It may lead to an account ban. 
-
-If you want to bypass forward restriction, see [RestrictSavingContentBypassFilter sources](/telemirror/messagefilters/restrictsavingfilter.py#L7) to start.
+6. ***Be careful*** with forwards from channels with [`restricted saving content`](https://telegram.org/blog/protected-content-delete-by-date-and-more). It may lead to an account ban
 
 ## Deploy
-
 <details>
   <summary><b>Heroku</b></summary>
 <br>
 
+### Heroku deploy button
+
 [![Deploy](https://www.herokucdn.com/deploy/button.svg)](https://heroku.com/deploy?template=https://github.com/khoben/telemirror)
 
-### Manually:
+### or via CLI:
 
 1. Clone project
 
@@ -174,7 +156,7 @@ If you want to bypass forward restriction, see [RestrictSavingContentBypassFilte
 6. Start heroku app
 
     ```bash
-    heroku ps:scale run=1
+    heroku ps:scale web=1
     ```
 
 ## Keep up-to-date with Heroku
