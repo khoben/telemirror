@@ -1,20 +1,15 @@
 {
     "name": "TeleMirror",
-    "description": "App helps mirroring newly created post from Telegram channels.",
-    "image": "heroku/python",
+    "description": "Telegram message forwarder (client API)",
     "repository": "https://github.com/khoben/telemirror",
     "keywords": [
         "python",
-        "telegram"
+        "telegram",
+        "forwarder"
     ],
     "addons": [
         "heroku-postgresql"
     ],
-    "formation": {
-        "run": {
-            "quantity": 1
-        }
-    },
     "env": {
         "API_ID": {
             "description": "Telegram APP ID"
