@@ -1,8 +1,9 @@
 from abc import abstractmethod
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
-from typing import List, Protocol
+from typing import Any, AsyncIterator, List, Protocol
 
+from psycopg import AsyncCursor
 from psycopg.rows import class_row
 from psycopg_pool import AsyncConnectionPool
 
@@ -242,11 +243,11 @@ class PostgresDatabase(Database):
 
     Args:
         connection_string (`str`): Postgres connection URL
-        min_conn (`int`, optional): Min amount of connections. Defaults to MIN_CONN (2).
+        min_conn (`int`, optional): Min amount of connections. Defaults to MIN_CONN (0).
         max_conn (`int`, optional): Max amount of connections. Defaults to MAX_CONN (10).
     """
 
-    MIN_CONN = 2
+    MIN_CONN = 0
     MAX_CONN = 10
 
     def __init__(
@@ -262,7 +263,7 @@ class PostgresDatabase(Database):
     async def _async__init__(self: 'PostgresDatabase') -> 'PostgresDatabase':
         self.connection_pool = AsyncConnectionPool(
             conninfo=self.__conn_info, min_size=self.__min_conn, max_size=self.__max_conn)
-        await self.__create_binding_if_not_exists()
+        await self.__create_tables_if_not_exists()
         return self
 
     async def insert(self: 'PostgresDatabase', entity: MirrorMessage) -> None:
@@ -365,9 +366,8 @@ class PostgresDatabase(Database):
                                 AND original_channel = %s
                                 """, (original_ids, original_channel,))
 
-    async def __create_binding_if_not_exists(self: 'PostgresDatabase'):
-        """Create binding table if not exists"""
-
+    async def __create_tables_if_not_exists(self: 'PostgresDatabase'):
+        """Create tables if not exists"""
         async with self.__pg_cursor() as cursor:
             await cursor.execute("""
                                 CREATE TABLE IF NOT EXISTS binding_id(   
@@ -379,7 +379,7 @@ class PostgresDatabase(Database):
                                 """)
 
     @asynccontextmanager
-    async def __pg_cursor(self: 'PostgresDatabase'):
+    async def __pg_cursor(self: 'PostgresDatabase') -> AsyncIterator[AsyncCursor[Any]]:
         """
         Gets connection from pool and yields cursor within current context
 
