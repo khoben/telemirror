@@ -117,10 +117,8 @@
 
 ## Deploy
 <details>
-  <summary><b>Heroku</b></summary>
+    <summary><b>Heroku</b></summary>
 <br>
-
-### Heroku deploy button
 
 [![Deploy](https://www.herokucdn.com/deploy/button.svg)](https://heroku.com/deploy?template=https://github.com/khoben/telemirror)
 
@@ -159,7 +157,7 @@
     heroku ps:scale web=1
     ```
 
-## Keep up-to-date with Heroku
+#### Keep up-to-date with Heroku
 
 If you deployed manually, move to step 2.
 
