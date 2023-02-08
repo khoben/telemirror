@@ -21,21 +21,13 @@ class EventHandlers:
         if hasattr(event, 'grouped_id') and event.grouped_id is not None:
             return
 
-        # Skip 'restricted saving content' enabled
-        if event.message.chat and event.message.chat.noforwards:
-            self._logger.warning(
-                f'Forwards from channel ({event.chat_id}) with `restricted saving content` '
-                f'enabled are not supported. See https://github.com/khoben/telemirror#be-careful-with-forwards-from-'
-                f'channels-with-restricted-saving-content-it-may-lead-to-an-account-ban'
-            )
-            return
-
-        incoming_message_link: str = self.event_message_link(event)
-
-        self._logger.info(f'[New message]: {incoming_message_link}')
-
         incoming_chat_id: int = event.chat_id
         incoming_message: EventMessage = event.message
+        incoming_message_link: str = self.event_message_link(event)
+
+        restricted_saving_content: bool = incoming_message.chat and incoming_message.chat.noforwards
+
+        self._logger.info(f'[New message]: {incoming_message_link}')
 
         try:
             outgoing_chats = self._chat_mapping.get(incoming_chat_id)
@@ -54,8 +46,16 @@ class EventHandlers:
                 incoming_message.media.poll.quiz = None
 
             for outgoing_chat in outgoing_chats:
-
                 config = self._target_config.get(outgoing_chat)
+
+                if restricted_saving_content and not config.filters.restricted_content_allowed:
+                    self._logger.warning(
+                        f'Forwards from channel#{event.chat_id} with `restricted saving content` '
+                        f'enabled to channel#{outgoing_chat} are not supported. '
+                        f'See https://github.com/khoben/telemirror#be-careful-with-forwards-from-'
+                        f'channels-with-restricted-saving-content-it-may-lead-to-an-account-ban'
+                    )
+                    continue
 
                 proceed, filtered_message = await config.filters.process(incoming_message)
 
@@ -82,21 +82,14 @@ class EventHandlers:
     async def on_album(self: 'MirrorTelegramClient', event: events.Album.Event) -> None:
         """Album event handler"""
 
-        # Skip 'restricted saving content' enabled
-        if event.messages[0].chat and event.messages[0].chat.noforwards:
-            self._logger.warning(
-                f'Forwards from channel ({event.chat_id}) with `restricted saving content` '
-                f'enabled are not supported. See https://github.com/khoben/telemirror#be-careful-with-forwards-from-'
-                f'channels-with-restricted-saving-content-it-may-lead-to-an-account-ban'
-            )
-            return
-
-        incoming_message_link: str = self.event_message_link(event)
-        self._logger.info(f'[New album]: {incoming_message_link}')
-
+        incoming_chat_id: int = event.chat_id
         incoming_album: List[EventMessage] = event.messages
         incoming_first_message: EventMessage = incoming_album[0]
-        incoming_chat_id: int = event.chat_id
+        incoming_message_link: str = self.event_message_link(event)
+
+        restricted_saving_content: bool = incoming_first_message.chat and incoming_first_message.chat.noforwards
+
+        self._logger.info(f'[New album]: {incoming_message_link}')
 
         try:
             outgoing_chats = self._chat_mapping.get(incoming_chat_id)
@@ -113,39 +106,49 @@ class EventHandlers:
             for outgoing_chat in outgoing_chats:
                 config = self._target_config.get(outgoing_chat)
 
+                if restricted_saving_content and not config.filters.restricted_content_allowed:
+                    self._logger.warning(
+                        f'Forwards from channel#{event.chat_id} with `restricted saving content` '
+                        f'enabled to channel#{outgoing_chat} are not supported. '
+                        f'See https://github.com/khoben/telemirror#be-careful-with-forwards-from-'
+                        f'channels-with-restricted-saving-content-it-may-lead-to-an-account-ban'
+                    )
+                    continue
+
                 proceed = True
                 filtered = False
-                filtered_album: list[EventMessage] = []
+                filtered_album: List[EventMessage] = []
 
-                for m in incoming_album:
-                    if m.message and not filtered:
+                for album_message in incoming_album:
+                    # Looking for first non-empty text message to process
+                    if album_message.message and not filtered:
                         filtered = True
-                        proceed, filtered_message = await config.filters.process(m)
+                        proceed, filtered_message = await config.filters.process(album_message)
                         if proceed is False:
                             break
                         filtered_album.append(filtered_message)
                     else:
-                        filtered_album.append(m)
+                        filtered_album.append(album_message)
 
+                # Apply filters to first non-empty or first message
                 if not filtered:
                     proceed, filtered_album[0] = await config.filters.process(filtered_album[0])
 
-                # Apply filters to first non-empty or first message
                 if proceed is False:
                     self._logger.info(
                         f'[New album]: Skipping message {incoming_message_link} for target chat#{outgoing_chat} by filter')
                     continue
 
-                idx: list[int] = []
-                files: list[types.TypeMessageMedia] = []
-                captions: list[str] = []
+                idx: List[int] = []
+                files: List[types.TypeMessageMedia] = []
+                captions: List[str] = []
                 for incoming_message in filtered_album:
                     idx.append(incoming_message.id)
                     files.append(incoming_message.media)
                     # Pass unparsed text, since: https://github.com/LonamiWebs/Telethon/issues/3065
                     captions.append(incoming_message.text)
 
-                outgoing_messages: list[types.Message] = await self.send_file(
+                outgoing_messages: List[types.Message] = await self.send_file(
                     entity=outgoing_chat,
                     caption=captions,
                     file=files,
@@ -169,14 +172,14 @@ class EventHandlers:
         if event.message.edit_hide is True:
             return
 
+        incoming_chat_id: int = event.chat_id
         incoming_message: EventMessage = event.message
-        incoming_chat: int = event.chat_id
         incoming_message_link: str = self.event_message_link(event)
 
         self._logger.info(f'[Edit message]: {incoming_message_link}')
 
         try:
-            outgoing_messages = await self._database.get_messages(incoming_message.id, incoming_chat)
+            outgoing_messages = await self._database.get_messages(incoming_message.id, incoming_chat_id)
             if not outgoing_messages:
                 self._logger.warning(
                     f'[Edit message]: No target messages to edit for {incoming_message_link}')
@@ -191,6 +194,7 @@ class EventHandlers:
 
                 filtered_message = incoming_message
 
+                # Apply filters to single message or to album if non-empty text
                 if incoming_message.grouped_id is None or incoming_message.message:
                     _, filtered_message = await config.filters.process(incoming_message)
 
@@ -209,17 +213,17 @@ class EventHandlers:
     async def on_deleted_message(self: 'MirrorTelegramClient', event: events.MessageDeleted.Event) -> None:
         """MessageDeleted event handler"""
 
+        incoming_chat_id: int = event.chat_id
         deleted_ids: List[int] = event.deleted_ids
-        incoming_chat: int = event.chat_id
 
         self._logger.info(
-            f'[Delete message]: Delete {len(deleted_ids)} messages from {incoming_chat}')
+            f'[Delete message]: Delete {len(deleted_ids)} messages from {incoming_chat_id}')
 
         try:
-            deleting_messages = await self._database.get_messages_batch(deleted_ids, incoming_chat)
+            deleting_messages = await self._database.get_messages_batch(deleted_ids, incoming_chat_id)
             if not deleting_messages:
                 self._logger.warning(
-                    f'[Delete message]: No target messages to delete for chat#{incoming_chat}')
+                    f'[Delete message]: No target messages to delete for chat#{incoming_chat_id}')
                 return
 
             delete_per_channel: Dict[int, List[int]] = {}
@@ -243,7 +247,7 @@ class EventHandlers:
                 except Exception as e:
                     self._logger.error(e, exc_info=True)
 
-            await self._database.delete_messages_batch(deleted_ids, incoming_chat)
+            await self._database.delete_messages_batch(deleted_ids, incoming_chat_id)
 
         except Exception as e:
             self._logger.error(e, exc_info=True)
@@ -342,10 +346,13 @@ class MirrorTelegramClient(TelegramClient, Mirroring):
                 raise RuntimeError(
                     "There is no authorization for the user, try restart or get a new session key (run login.py)")
         except (errors.UserDeactivatedBanError, errors.UserDeactivatedError):
-            self._logger.critical("Account banned/deactivated by Telegram. See https://github.com/lonamiwebs/telethon/issues/824")
+            self._logger.critical(
+                "Account banned/deactivated by Telegram. See https://github.com/lonamiwebs/telethon/issues/824")
         except errors.PhoneNumberBannedError:
-            self._logger.critical("Phone number banned/deactivated by Telegram. See https://github.com/lonamiwebs/telethon/issues/824")
+            self._logger.critical(
+                "Phone number banned/deactivated by Telegram. See https://github.com/lonamiwebs/telethon/issues/824")
         except (errors.SessionExpiredError, errors.SessionRevokedError):
-            self._logger.critical("The user's session has expired, try to get a new session key (run login.py)")
+            self._logger.critical(
+                "The user's session has expired, try to get a new session key (run login.py)")
         finally:
             await self.disconnect()

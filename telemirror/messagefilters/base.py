@@ -6,6 +6,11 @@ from ..hints import EventMessage
 
 class MessageFilter(Protocol):
 
+    @property
+    def restricted_content_allowed(self) -> bool:
+        """Indicates that restricted content is allowed or not to process"""
+        return False
+
     @abstractmethod
     async def process(self, message: EventMessage) -> Tuple[bool, EventMessage]:
         """Apply filter to **message**
@@ -35,6 +40,12 @@ class CompositeMessageFilter(MessageFilter):
 
     def __init__(self, *arg: MessageFilter) -> None:
         self._filters = list(arg)
+        self._is_restricted_content_allowed = any(f.restricted_content_allowed for f in self._filters)
+
+    @property
+    def restricted_content_allowed(self) -> bool:
+        """Indicates that restricted content is allowed or not to process"""
+        return self._is_restricted_content_allowed
 
     async def process(self, message: EventMessage) -> Tuple[bool, EventMessage]:
         for f in self._filters:
