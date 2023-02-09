@@ -26,7 +26,7 @@ class MessageFilter(Protocol):
         """
         if isinstance(entity, EventMessage):
             return await self._process_message(entity, event_type)
-        elif isinstance(entity, EventAlbumMessage):
+        elif isinstance(entity, list):
             return await self._process_album(entity, event_type)
 
         return True, entity
@@ -94,6 +94,9 @@ class CompositeMessageFilter(MessageFilter):
             if proceed is False:
                 return False, message
         return True, message
+
+    async def _process_message(self, message: EventMessage, event_type: Type[EventLike]) -> Tuple[bool, EventMessage]:
+        raise NotImplementedError
 
     def __repr__(self) -> str:
         return f'{self.__class__.__name__}: {self._filters}'

@@ -17,6 +17,9 @@ class EmptyMessageFilter(MessageFilter):
     async def process(self, message: EventEntity, event_type: Type[EventLike]) -> Tuple[bool, EventEntity]:
         return True, message
 
+    async def _process_message(self, message: EventMessage, event_type: Type[EventLike]) -> Tuple[bool, EventMessage]:
+        return True, message
+
 
 class SkipUrlFilter(MessageFilter):
     """Skip messages with URLs
@@ -155,8 +158,8 @@ class ForwardFormatFilter(ChannelName, MessageLink, CopyMessage, MessageFilter):
         self._format = format
 
     async def _process_message(self, message: EventMessage, event_type: Type[EventLike]) -> Tuple[bool, EventMessage]:
-        # On edit: apply forward filter to single message or to album item if non-empty text
-        if message.grouped_id and not message.message and event_type is events.MessageEdited.Event:
+        # Skip format editing for albums
+        if message.grouped_id and event_type is events.MessageEdited.Event:
             return True, message
 
         message_link: Optional[str] = self.message_link(message)
@@ -210,9 +213,9 @@ class ForwardFormatFilter(ChannelName, MessageLink, CopyMessage, MessageFilter):
         if not message_album:
             message_album = album[0]
 
-        _, album[message_idx] = await self._process_message(message_album, event_type)
+        proceed, album[message_idx] = await self._process_message(message_album, event_type)
 
-        return True, album
+        return proceed, album
 
 
 class MappedNameForwardFormat(MappedChannelName, ForwardFormatFilter):
@@ -302,5 +305,8 @@ class SkipWithKeywordsFilter(WhitespacedWordBound, MessageFilter):
 class SkipAllFilter(MessageFilter):
     """Skips all messages
     """
+    async def process(self, message: EventEntity, event_type: Type[EventLike]) -> Tuple[bool, EventEntity]:
+        return False, message
+
     async def _process_message(self, message: EventMessage, event_type: Type[EventLike]) -> Tuple[bool, EventMessage]:
         return False, message
