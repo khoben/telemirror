@@ -247,7 +247,7 @@ class PostgresDatabase(Database):
         max_conn (`int`, optional): Max amount of connections. Defaults to MAX_CONN (10).
     """
 
-    MIN_CONN = 0
+    MIN_CONN = 1
     MAX_CONN = 10
 
     def __init__(
