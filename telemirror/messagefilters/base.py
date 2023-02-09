@@ -1,7 +1,7 @@
 from abc import abstractmethod
-from typing import Protocol, Tuple
+from typing import Protocol, Tuple, Type
 
-from ..hints import EventMessage
+from ..hints import EventEntity, EventLike, EventAlbumMessage, EventMessage
 
 
 class MessageFilter(Protocol):
@@ -11,12 +11,33 @@ class MessageFilter(Protocol):
         """Indicates that restricted content is allowed or not to process"""
         return False
 
-    @abstractmethod
-    async def process(self, message: EventMessage) -> Tuple[bool, EventMessage]:
-        """Apply filter to **message**
+    async def process(self, entity: EventEntity, event_type: Type[EventLike]) -> Tuple[bool, EventEntity]:
+        """Process **entity** with filter
 
         Args:
-            message (`EventMessage`): Source message
+            entity (`EventEntity`): Source event entity
+            event_type (`Type[EventLike]`): Type of event
+
+        Returns:
+            Tuple[bool, EventEntity]: 
+                Indicates that the filtered message should be forwarded
+
+                Processed entity
+        """
+        if isinstance(entity, EventMessage):
+            return await self._process_message(entity, event_type)
+        elif isinstance(entity, EventAlbumMessage):
+            return await self._process_album(entity, event_type)
+
+        return True, entity
+
+    @abstractmethod
+    async def _process_message(self, message: EventMessage, event_type: Type[EventLike]) -> Tuple[bool, EventMessage]:
+        """Process **message** with filter
+
+        Args:
+            message (`EventMessage`): Source event message
+            event_type (`Type[EventLike]`): Type of event
 
         Returns:
             Tuple[bool, EventMessage]: 
@@ -25,6 +46,27 @@ class MessageFilter(Protocol):
                 Processed message
         """
         raise NotImplementedError
+
+    async def _process_album(self, album: EventAlbumMessage, event_type: Type[EventLike]) -> Tuple[bool, EventAlbumMessage]:
+        """Process **album** with filter
+
+        Args:
+            album (`EventAlbumMessage`): Source event album
+            event_type (`Type[EventLike]`): Type of event
+
+        Returns:
+            Tuple[bool, EventAlbumMessage]: 
+                Indicates that the filtered message should be forwarded
+
+                Processed album
+        """
+        for idx, message in enumerate(album):
+            proceed, album[idx] = await self._process_message(message, event_type)
+            if proceed is False:
+                return False, album
+
+        return True, album
+
 
     def __repr__(self) -> str:
         return self.__class__.__name__
@@ -44,13 +86,12 @@ class CompositeMessageFilter(MessageFilter):
 
     @property
     def restricted_content_allowed(self) -> bool:
-        """Indicates that restricted content is allowed or not to process"""
         return self._is_restricted_content_allowed
 
-    async def process(self, message: EventMessage) -> Tuple[bool, EventMessage]:
+    async def process(self, message: EventEntity, event_type: Type[EventLike]) -> Tuple[bool, EventEntity]:
         for f in self._filters:
-            cont, message = await f.process(message)
-            if cont is False:
+            proceed, message = await f.process(message, event_type)
+            if proceed is False:
                 return False, message
         return True, message
 

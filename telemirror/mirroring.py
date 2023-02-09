@@ -8,7 +8,7 @@ from telethon.tl import types
 
 from config import TargetConfig
 
-from .hints import EventLike, EventMessage
+from .hints import EventLike, EventMessage, EventAlbumMessage
 from .storage import Database, MirrorMessage
 
 
@@ -27,22 +27,22 @@ class EventHandlers:
 
         restricted_saving_content: bool = incoming_message.chat and incoming_message.chat.noforwards
 
-        self._logger.info(f'[New message]: {incoming_message_link}')
-
         try:
             outgoing_chats = self._chat_mapping.get(incoming_chat_id)
             if not outgoing_chats:
                 self._logger.warning(
-                    f'[New message]: No target chats for chat#{incoming_chat_id}')
+                    f'[New message]: No target chats for message {incoming_message_link}')
                 return
+
+            self._logger.info(f'[New message]: {incoming_message_link}')
 
             reply_to_messages: dict[int, int] = {
                 m.mirror_channel: m.mirror_id
                 for m in await self._database.get_messages(incoming_message.reply_to_msg_id, incoming_chat_id)
             } if incoming_message.is_reply else {}
 
+            # Copy quiz poll as simple poll
             if isinstance(incoming_message.media, types.MessageMediaPoll):
-                # Copy quiz poll as simple poll
                 incoming_message.media.poll.quiz = None
 
             for outgoing_chat in outgoing_chats:
@@ -50,18 +50,17 @@ class EventHandlers:
 
                 if restricted_saving_content and not config.filters.restricted_content_allowed:
                     self._logger.warning(
-                        f'Forwards from channel#{event.chat_id} with `restricted saving content` '
-                        f'enabled to channel#{outgoing_chat} are not supported. '
-                        f'See https://github.com/khoben/telemirror#be-careful-with-forwards-from-'
-                        f'channels-with-restricted-saving-content-it-may-lead-to-an-account-ban'
+                        f'Forwards from channel#{incoming_chat_id} with `restricted saving content` '
+                        f'enabled to channel#{outgoing_chat} are not supported.'
                     )
                     continue
 
-                proceed, filtered_message = await config.filters.process(incoming_message)
+                filtered_message: EventMessage
+                proceed, filtered_message = await config.filters.process(incoming_message, events.NewMessage.Event)
 
                 if proceed is False:
                     self._logger.info(
-                        f'[New message]: Skipping message {incoming_message_link} for target chat#{outgoing_chat} by filter')
+                        f'[New message]: Message {incoming_message_link} was skipped by the filter for chat#{outgoing_chat}')
                     continue
 
                 outgoing_message = await self.send_message(
@@ -83,13 +82,11 @@ class EventHandlers:
         """Album event handler"""
 
         incoming_chat_id: int = event.chat_id
-        incoming_album: List[EventMessage] = event.messages
+        incoming_album: EventAlbumMessage = event.messages
         incoming_first_message: EventMessage = incoming_album[0]
         incoming_message_link: str = self.event_message_link(event)
 
         restricted_saving_content: bool = incoming_first_message.chat and incoming_first_message.chat.noforwards
-
-        self._logger.info(f'[New album]: {incoming_message_link}')
 
         try:
             outgoing_chats = self._chat_mapping.get(incoming_chat_id)
@@ -97,6 +94,8 @@ class EventHandlers:
                 self._logger.warning(
                     f'[New album]: No target chats for chat#{incoming_chat_id}')
                 return
+
+            self._logger.info(f'[New album]: {incoming_message_link}')
 
             reply_to_messages: dict[int, int] = {
                 m.mirror_channel: m.mirror_id
@@ -108,35 +107,17 @@ class EventHandlers:
 
                 if restricted_saving_content and not config.filters.restricted_content_allowed:
                     self._logger.warning(
-                        f'Forwards from channel#{event.chat_id} with `restricted saving content` '
-                        f'enabled to channel#{outgoing_chat} are not supported. '
-                        f'See https://github.com/khoben/telemirror#be-careful-with-forwards-from-'
-                        f'channels-with-restricted-saving-content-it-may-lead-to-an-account-ban'
+                        f'Forwards from channel#{incoming_chat_id} with `restricted saving content` '
+                        f'enabled to channel#{outgoing_chat} are not supported.'
                     )
                     continue
-
-                proceed = True
-                filtered = False
-                filtered_album: List[EventMessage] = []
-
-                for album_message in incoming_album:
-                    # Looking for first non-empty text message to process
-                    if album_message.message and not filtered:
-                        filtered = True
-                        proceed, filtered_message = await config.filters.process(album_message)
-                        if proceed is False:
-                            break
-                        filtered_album.append(filtered_message)
-                    else:
-                        filtered_album.append(album_message)
-
-                # Apply filters to first non-empty or first message
-                if not filtered:
-                    proceed, filtered_album[0] = await config.filters.process(filtered_album[0])
+                
+                filtered_album: EventAlbumMessage
+                proceed, filtered_album = await config.filters.process(incoming_album, events.Album.Event)
 
                 if proceed is False:
                     self._logger.info(
-                        f'[New album]: Skipping message {incoming_message_link} for target chat#{outgoing_chat} by filter')
+                        f'[New album]: Message {incoming_message_link} was skipped by the filter for chat#{outgoing_chat}')
                     continue
 
                 idx: List[int] = []
@@ -176,14 +157,14 @@ class EventHandlers:
         incoming_message: EventMessage = event.message
         incoming_message_link: str = self.event_message_link(event)
 
-        self._logger.info(f'[Edit message]: {incoming_message_link}')
-
         try:
             outgoing_messages = await self._database.get_messages(incoming_message.id, incoming_chat_id)
             if not outgoing_messages:
                 self._logger.warning(
                     f'[Edit message]: No target messages to edit for {incoming_message_link}')
                 return
+
+            self._logger.info(f'[Edit message]: {incoming_message_link}')
 
             for outgoing_message in outgoing_messages:
                 config = self._target_config.get(
@@ -192,11 +173,7 @@ class EventHandlers:
                 if config.disable_edit is True:
                     continue
 
-                filtered_message = incoming_message
-
-                # Apply filters to single message or to album if non-empty text
-                if incoming_message.grouped_id is None or incoming_message.message:
-                    _, filtered_message = await config.filters.process(incoming_message)
+                _, filtered_message = await config.filters.process(incoming_message, events.MessageEdited.Event)
 
                 await self.edit_message(
                     entity=outgoing_message.mirror_channel,
@@ -216,15 +193,15 @@ class EventHandlers:
         incoming_chat_id: int = event.chat_id
         deleted_ids: List[int] = event.deleted_ids
 
-        self._logger.info(
-            f'[Delete message]: Delete {len(deleted_ids)} messages from {incoming_chat_id}')
-
         try:
             deleting_messages = await self._database.get_messages_batch(deleted_ids, incoming_chat_id)
             if not deleting_messages:
                 self._logger.warning(
                     f'[Delete message]: No target messages to delete for chat#{incoming_chat_id}')
                 return
+
+            self._logger.info(
+                f'[Delete message]: Delete {len(deleted_ids)} messages from {incoming_chat_id}')
 
             delete_per_channel: Dict[int, List[int]] = {}
 
@@ -235,8 +212,8 @@ class EventHandlers:
                 if config.disable_delete is True:
                     continue
 
-                delete_per_channel.setdefault(deleting_message.mirror_channel, [
-                ]).append(deleting_message.mirror_id)
+                delete_per_channel.setdefault(
+                    deleting_message.mirror_channel, []).append(deleting_message.mirror_id)
 
             for channel_id, message_list in delete_per_channel.items():
                 try:

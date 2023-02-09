@@ -1,6 +1,6 @@
-from typing import Tuple
+from typing import Tuple, Type
 
-from ..hints import EventMessage
+from ..hints import EventMessage, EventLike
 from .base import MessageFilter
 
 
@@ -31,8 +31,7 @@ class RestrictSavingContentBypassFilter(MessageFilter):
 
     @property
     def restricted_content_allowed(self) -> bool:
-        """Indicates that restricted content is allowed or not to process"""
         return True
 
-    async def process(self, message: EventMessage) -> Tuple[bool, EventMessage]:
+    async def _process_message(self, message: EventMessage, event_type: Type[EventLike]) -> Tuple[bool, EventMessage]:
         raise NotImplementedError

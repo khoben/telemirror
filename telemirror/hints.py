@@ -1,4 +1,5 @@
-from typing import Union
+from typing import List, Union
+
 from telethon import events, tl
 
 EventLike = Union[
@@ -9,3 +10,7 @@ EventLike = Union[
 ]
 
 EventMessage = tl.patched.Message
+
+EventAlbumMessage = List[EventMessage]
+
+EventEntity = Union[EventMessage, EventAlbumMessage]

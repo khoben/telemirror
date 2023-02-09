@@ -1,10 +1,10 @@
 import re
-from typing import List, Optional, Set, Tuple, Union
+from typing import List, Optional, Set, Tuple, Type, Union
 
-from telethon import types, utils
+from telethon import events, types, utils
 from telethon.extensions import markdown as md_parser
 
-from ..hints import EventMessage
+from ..hints import EventAlbumMessage, EventEntity, EventLike, EventMessage
 from ..misc.urlmatcher import UrlMatcher
 from .base import MessageFilter
 from .mixins import (ChannelName, CopyMessage, MappedChannelName, MessageLink,
@@ -14,7 +14,7 @@ from .mixins import (ChannelName, CopyMessage, MappedChannelName, MessageLink,
 class EmptyMessageFilter(MessageFilter):
     """Do nothing with message"""
 
-    async def process(self, message: EventMessage) -> Tuple[bool, EventMessage]:
+    async def process(self, message: EventEntity, event_type: Type[EventLike]) -> Tuple[bool, EventEntity]:
         return True, message
 
 
@@ -32,7 +32,7 @@ class SkipUrlFilter(MessageFilter):
     ) -> None:
         self._skip_mention = skip_mention
 
-    async def process(self, message: EventMessage) -> Tuple[bool, EventMessage]:
+    async def _process_message(self, message: EventMessage, event_type: Type[EventLike]) -> Tuple[bool, EventMessage]:
         if message.entities:
             for e in message.entities:
                 if isinstance(e, (types.MessageEntityUrl, types.MessageEntityTextUrl)) or \
@@ -91,7 +91,7 @@ class UrlMessageFilter(CopyMessage, MessageFilter):
 
         self._filter_by_id_mention = filter_by_id_mention
 
-    async def process(self, message: EventMessage) -> Tuple[bool, EventMessage]:
+    async def _process_message(self, message: EventMessage, event_type: Type[EventLike]) -> Tuple[bool, EventMessage]:
         filtered_message = self.copy_message(message)
         # Filter message entities
         if filtered_message.entities:
@@ -154,7 +154,11 @@ class ForwardFormatFilter(ChannelName, MessageLink, CopyMessage, MessageFilter):
     def __init__(self, format: str = DEFAULT_FORMAT) -> None:
         self._format = format
 
-    async def process(self, message: EventMessage) -> Tuple[bool, EventMessage]:
+    async def _process_message(self, message: EventMessage, event_type: Type[EventLike]) -> Tuple[bool, EventMessage]:
+        # On edit: apply forward filter to single message or to album item if non-empty text
+        if message.grouped_id and not message.message and event_type is events.MessageEdited.Event:
+            return True, message
+
         message_link: Optional[str] = self.message_link(message)
         channel_name: str = self.channel_name(message)
 
@@ -193,6 +197,23 @@ class ForwardFormatFilter(ChannelName, MessageLink, CopyMessage, MessageFilter):
 
         return True, filtered_message
 
+    async def _process_album(self, album: EventAlbumMessage, event_type: Type[EventLike]) -> Tuple[bool, EventAlbumMessage]:
+        # process first message with non-empty text or first message
+        message_album: EventMessage = None
+        message_idx: int = 0
+        for idx, message in enumerate(album):
+            if message.message:
+                message_album = message
+                message_idx = idx
+                break
+
+        if not message_album:
+            message_album = album[0]
+
+        _, album[message_idx] = await self._process_message(message_album, event_type)
+
+        return True, album
+
 
 class MappedNameForwardFormat(MappedChannelName, ForwardFormatFilter):
     """Filter that adds a forwarding formatting (markdown supported)
@@ -228,7 +249,7 @@ class KeywordReplaceFilter(WhitespacedWordBound, CopyMessage, MessageFilter):
         self._keywords_mapping = [(re.compile(f'{self.BOUNDARY_REGEX}{k}{self.BOUNDARY_REGEX}',
                                               flags=re.IGNORECASE), v) for k, v in keywords.items()]
 
-    async def process(self, message: EventMessage) -> Tuple[bool, EventMessage]:
+    async def _process_message(self, message: EventMessage, event_type: Type[EventLike]) -> Tuple[bool, EventMessage]:
         filtered_message = self.copy_message(message)
         unparsed_text = filtered_message.message
 
@@ -272,7 +293,7 @@ class SkipWithKeywordsFilter(WhitespacedWordBound, MessageFilter):
         self._regex = re.compile(
             '|'.join([f'{self.BOUNDARY_REGEX}{k}{self.BOUNDARY_REGEX}' for k in keywords]), flags=re.IGNORECASE)
 
-    async def process(self, message: EventMessage) -> Tuple[bool, EventMessage]:
+    async def _process_message(self, message: EventMessage, event_type: Type[EventLike]) -> Tuple[bool, EventMessage]:
         if self._regex.search(message.message):
             return False, message
         return True, message
@@ -281,5 +302,5 @@ class SkipWithKeywordsFilter(WhitespacedWordBound, MessageFilter):
 class SkipAllFilter(MessageFilter):
     """Skips all messages
     """
-    async def process(self, message: EventMessage) -> Tuple[bool, EventMessage]:
+    async def _process_message(self, message: EventMessage, event_type: Type[EventLike]) -> Tuple[bool, EventMessage]:
         return False, message
