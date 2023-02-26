@@ -3,6 +3,7 @@ Loads environment(.env)/config.yaml config
 """
 import os
 from dataclasses import dataclass
+from typing import List, Tuple, Dict
 
 from decouple import Csv, config
 
@@ -45,23 +46,20 @@ LOG_LEVEL: str = config("LOG_LEVEL", default="INFO").upper()
 
 
 @dataclass
-class TargetConfig:
+class DirectionConfig:
     disable_delete: bool
     disable_edit: bool
     filters: MessageFilter
 
 
-YAML_CONFIG = './mirror.config.yml'
-
-# target channels config
-TARGET_CONFIG: dict[int, TargetConfig] = {}
-
 # source and target chats mapping
-CHAT_MAPPING: dict[int, list[int]] = {}
+CHAT_MAPPING: Dict[int, Dict[int, DirectionConfig]] = {}
+
+YAML_CONFIG_FILE = './mirror.config.yml'
 
 # Load mirror config from config.yml
 # otherwise from .env or environment
-if os.path.exists(YAML_CONFIG):
+if os.path.exists(YAML_CONFIG_FILE):
 
     from importlib import import_module
     from types import ModuleType
@@ -73,16 +71,20 @@ if os.path.exists(YAML_CONFIG):
 
     yaml_config: dict = None
 
-    with open(YAML_CONFIG, encoding="utf8") as file:
+    with open(YAML_CONFIG_FILE, encoding="utf8") as file:
         yaml_config = yaml.load(file, Loader=yaml.FullLoader)
 
-    def build_filters(config_filters: Optional[dict], default: MessageFilter) -> MessageFilter:
+    if 'targets' in yaml_config:
+        raise ValueError(
+            '`targets` section deprecated. Please move `disable_delete`, `disable_edit` and `filters` to `directions` section.')
 
-        if not config_filters:
+    def build_filters(filter_config: Optional[dict], default: MessageFilter) -> MessageFilter:
+
+        if not filter_config:
             return default
 
-        filters = []
-        for filter in config_filters:
+        filters: List[MessageFilter] = []
+        for filter in filter_config:
             filter_name, filter_args = list(filter.items())[0] if isinstance(
                 filter, dict) else (filter, {})
             filter_class = getattr(filters_module, filter_name)
@@ -90,7 +92,7 @@ if os.path.exists(YAML_CONFIG):
 
         return CompositeMessageFilter(*filters) if (len(filters) > 1) else filters[0]
 
-    global_config = TargetConfig(
+    default_config = DirectionConfig(
         disable_delete=yaml_config.get('disable_delete', False),
         disable_edit=yaml_config.get('disable_edit', False),
         filters=build_filters(yaml_config.get(
@@ -101,47 +103,47 @@ if os.path.exists(YAML_CONFIG):
         sources: list[int] = direction['from']
         targets: list[int] = direction['to']
 
-        for target in targets:
-            TARGET_CONFIG[target] = global_config
-
-        for source in sources:
-            CHAT_MAPPING.setdefault(source, []).extend(targets)
-
-    for target in yaml_config.get('targets', []):
-        TARGET_CONFIG[target.get('id')] = TargetConfig(
-            disable_delete=target.get(
-                'disable_delete', global_config.disable_delete),
-            disable_edit=target.get(
-                'disable_edit', global_config.disable_edit),
-            filters=build_filters(target.get(
-                'filters', None), global_config.filters)
+        direction_config = DirectionConfig(
+            disable_delete=direction.get(
+                'disable_delete', default_config.disable_delete),
+            disable_edit=direction.get(
+                'disable_edit', default_config.disable_edit),
+            filters=build_filters(direction.get(
+                'filters', None), default_config.filters)
         )
 
+        targets_config = {target: direction_config for target in targets}
+
+        for source in sources:
+            CHAT_MAPPING.setdefault(source, {}).update(targets_config)
+
 else:
+    # Mirror config thru environment vars
+    from functools import partial
 
-    def cast_env_chat_mapping(v: str) -> dict[int, list[int]]:
-        mapping = {}
+    def build_mapping_from_env(
+        direction_config: DirectionConfig,
+        env_str: str
+    ) -> Dict[int, Dict[int, DirectionConfig]]:
 
-        if not v:
+        mapping: Dict[int, Dict[int, DirectionConfig]] = {}
+
+        if not env_str:
             return mapping
 
         import re
 
         matches = re.findall(
-            r'\[?((?:-?\d+,?)+):((?:-?\d+,?)+)\]?', v, re.MULTILINE)
+            r'\[?((?:-?\d+,?)+):((?:-?\d+,?)+)\]?', env_str, re.MULTILINE)
+
         for match in matches:
             sources = [int(val) for val in match[0].split(',')]
-            targets = [int(val) for val in match[1].split(',')]
+            targets_config = {int(val): direction_config
+                       for val in match[1].split(',')}
             for source in sources:
-                mapping.setdefault(source, []).extend(targets)
+                mapping.setdefault(source, {}).update(targets_config)
+
         return mapping
-
-    CHAT_MAPPING: dict[int, list[int]] = config(
-        "CHAT_MAPPING", cast=cast_env_chat_mapping, default="")
-
-    if not CHAT_MAPPING:
-        raise Exception("The chat mapping configuration is incorrect. "
-                        "Please provide valid non-empty CHAT_MAPPING environment variable.")
 
     # remove urls from messages
     REMOVE_URLS: bool = config("REMOVE_URLS", cast=bool, default=False)
@@ -161,12 +163,17 @@ else:
     else:
         message_filter = EmptyMessageFilter()
 
-    global_config = TargetConfig(
+    default_config = DirectionConfig(
         disable_delete=DISABLE_DELETE,
         disable_edit=DISABLE_EDIT,
         filters=message_filter
     )
 
-    for _, targets in CHAT_MAPPING.items():
-        for target in targets:
-            TARGET_CONFIG[target] = global_config
+    cast_env_chat_mapping = partial(build_mapping_from_env, default_config)
+
+    CHAT_MAPPING = config(
+        "CHAT_MAPPING", cast=cast_env_chat_mapping, default="")
+
+    if not CHAT_MAPPING:
+        raise Exception("The chat mapping configuration is incorrect. "
+                        "Please provide valid non-empty CHAT_MAPPING environment variable.")

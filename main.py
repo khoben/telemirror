@@ -3,7 +3,7 @@ import logging
 from aiohttp import web
 
 from config import (API_HASH, API_ID, CHAT_MAPPING, DB_URL, LOG_LEVEL,
-                    SESSION_STRING, TARGET_CONFIG, USE_MEMORY_DB)
+                    SESSION_STRING, USE_MEMORY_DB)
 from telemirror.mirroring import MirrorTelegramClient
 from telemirror.storage import Database, InMemoryDatabase, PostgresDatabase
 
@@ -29,7 +29,6 @@ async def init_telemirror(logger: logging.Logger, database: Database):
         api_id=API_ID,
         api_hash=API_HASH,
         chat_mapping=CHAT_MAPPING,
-        target_config=TARGET_CONFIG,
         database=await database,
         logger=logger
     ).run()

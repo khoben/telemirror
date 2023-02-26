@@ -100,11 +100,6 @@
 
       - from: [-100226]
         to: [-1006, -1008]
-    
-    # (Optional) Targets config
-    targets:
-        # Config will be applied to target channel with id=-100203
-      - id: -100203
         # Overwrite global settings
         disable_edit: false
         disable_delete: false
