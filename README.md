@@ -3,7 +3,7 @@
 ### Functionality
 - Live forwarding and updating messages
 - Source and target channels/chats (one-to-one, many-to-one, many-to-many) mapping
-- Incoming message filters (will be applied to target channels)
+- Incoming message filters: word replacing, forward formating, skipping by keyword and more
 
 ## Prepare
 
@@ -15,24 +15,42 @@
 
 3. Setup Postgres database or use `InMemoryDatabase` with `USE_MEMORY_DB=true` parameter in `.env` file
 
-4. Fill [.env-example](.env-example) with your data and rename it to `.env`
+4. Fill `.env`/`mirror.config.yml` config files with your data
 
     [.env-example](.env-example) contains the minimum environment configuration to run with an in-memory database.
 
     **SESSION_STRING** can be obtained by running [login.py](login.py) with provided **API_ID** and **API_HASH** environment variables. **DON'T USE** your own account.
-
-    Channels ID can be fetched by using [@messageinformationsbot](https://t.me/messageinformationsbot) Telegram bot.
     
     <details>
     <summary><b>.env overview</b></summary>
 
     ```bash
+    ###########################
+    #    App configuration    #
+    ###########################
+    
     # Telegram app ID
     API_ID=test
     # Telegram app hash
     API_HASH=test
     # Telegram session string (telethon session, see login.py in root directory)
     SESSION_STRING=test
+    # Use an in-memory database instead of Postgres DB (true or false). Defaults to false
+    USE_MEMORY_DB=false
+    # Postgres credentials
+    DATABASE_URL=postgres://user:pass@host/dbname
+    # or
+    DB_NAME=test
+    DB_USER=test
+    DB_HOST=test
+    DB_PASS=test
+    # Logging level (debug, info, warning, error or critical). Defaults to info
+    LOG_LEVEL=info
+
+    ###############################################
+    #    Setup directions and filters from env    #
+    ###############################################
+
     # Mapping between source and target channels/chats
     # Channel/chat id can be fetched by using @messageinformationsbot telegram bot
     # Channel id should be prefixed with -100
@@ -51,21 +69,10 @@
     DISABLE_DELETE=false
     # Disable mirror message editing (true or false). Defaults to false
     DISABLE_EDIT=false
-    # Use an in-memory database instead of Postgres DB (true or false). Defaults to false
-    USE_MEMORY_DB=false
-    # Postgres credentials
-    DATABASE_URL=postgres://user:pass@host/dbname
-    # or
-    DB_NAME=test
-    DB_USER=test
-    DB_HOST=test
-    DB_PASS=test
-    # Logging level (debug, info, warning, error or critical). Defaults to info
-    LOG_LEVEL=info
     ```
     </details>
 
-    For more flexible configurations (setup directions and filters), use yaml:
+    To setup **directions and filters** section `mirror.config.yml` can be used:
 
     <details>
     <summary><b>mirror.config.yml</b> overview</summary>
@@ -109,11 +116,13 @@
     ```
     </details>
 
+    ❓ Channels ID can be fetched by using [Telegram bot](https://t.me/messageinformationsbot).
+
     ❗ Note: never push your `.env`/`.yml` files with real crendential to a public repo. Use a separate branch (eg, `heroku-branch`) with `.env`/`.yml` files to push to git-based deployment system like Heroku.
 
 5. Make sure the account has joined source and target channels
 
-6. ***Be careful*** with forwards from channels with [`restricted saving content`](https://telegram.org/blog/protected-content-delete-by-date-and-more). It may lead to an account ban
+6. **Be careful** with forwards from channels with [`RESTRICTED SAVING CONTENT`](https://telegram.org/blog/protected-content-delete-by-date-and-more). It may lead to an account ban
 
 ## Deploy
 <details>
