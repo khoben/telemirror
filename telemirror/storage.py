@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from typing import Any, AsyncIterator, List, Protocol
 
-from psycopg import AsyncCursor
+from psycopg import AsyncCursor, errors
 from psycopg.rows import class_row
 from psycopg_pool import AsyncConnectionPool
 
@@ -243,7 +243,7 @@ class PostgresDatabase(Database):
 
     Args:
         connection_string (`str`): Postgres connection URL
-        min_conn (`int`, optional): Min amount of connections. Defaults to MIN_CONN (0).
+        min_conn (`int`, optional): Min amount of connections. Defaults to MIN_CONN (1).
         max_conn (`int`, optional): Max amount of connections. Defaults to MAX_CONN (10).
     """
 
@@ -254,15 +254,21 @@ class PostgresDatabase(Database):
         self,
         connection_string: str,
         min_conn: int = MIN_CONN,
-        max_conn: int = MAX_CONN
+        max_conn: int = MAX_CONN,
+        **kwargs: Any
     ) -> 'PostgresDatabase':
         self.__conn_info = connection_string
         self.__min_conn = min_conn
         self.__max_conn = max_conn
+        self.__kwargs = kwargs
 
     async def _async__init__(self: 'PostgresDatabase') -> 'PostgresDatabase':
         self.connection_pool = AsyncConnectionPool(
-            conninfo=self.__conn_info, min_size=self.__min_conn, max_size=self.__max_conn)
+            conninfo=self.__conn_info,
+            min_size=self.__min_conn,
+            max_size=self.__max_conn,
+            **self.__kwargs
+        )
         await self.__create_tables_if_not_exists()
         return self
 
@@ -387,5 +393,14 @@ class PostgresDatabase(Database):
             (`psycopg.AsyncCursor`): Cursor
         """
         async with self.connection_pool.connection() as con:
-            async with con.cursor() as cur:
-                yield cur
+            try:
+                async with con.cursor() as cur:
+                    yield cur
+            except errors.OperationalError as e:
+                # If we get an operational error check the pool
+                await self.connection_pool.check()
+                raise e
+            except errors.DatabaseError as e:
+                if con is not None:
+                    await con.rollback()
+                raise e
