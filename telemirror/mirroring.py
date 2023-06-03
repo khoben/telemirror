@@ -80,6 +80,7 @@ class EventHandlers:
                     )
                     continue
 
+                outgoing_message = None
                 try:
                     outgoing_message = await self.send_message(
                         entity=outgoing_chat,
@@ -172,6 +173,7 @@ class EventHandlers:
                     # Pass unparsed text, since: https://github.com/LonamiWebs/Telethon/issues/3065
                     captions.append(incoming_message.text)
 
+                outgoing_messages = None
                 try:
                     outgoing_messages: List[types.Message] = await self.send_file(
                         entity=outgoing_chat,
