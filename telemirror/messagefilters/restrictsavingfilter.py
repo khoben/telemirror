@@ -24,7 +24,7 @@ class RestrictSavingContentBypassFilter(MessageFilter):
         # Others media types set to None (remove from original message)...
         else:
             message.media = None
-    
+
     return True, message
     ```
     """
@@ -33,5 +33,7 @@ class RestrictSavingContentBypassFilter(MessageFilter):
     def restricted_content_allowed(self) -> bool:
         return True
 
-    async def _process_message(self, message: EventMessage, event_type: Type[EventLike]) -> Tuple[bool, EventMessage]:
+    async def _process_message(
+        self, message: EventMessage, event_type: Type[EventLike]
+    ) -> Tuple[bool, EventMessage]:
         raise NotImplementedError

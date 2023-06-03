@@ -6,7 +6,6 @@ from ..hints import EventMessage
 
 
 class MappedChannelName:
-
     def __init__(self, mapped: dict[int, str]) -> None:
         self.__mapped = mapped
 
@@ -16,14 +15,12 @@ class MappedChannelName:
 
 
 class ChannelName:
-
     def channel_name(self, message: EventMessage) -> Optional[str]:
         """Get chat/channel display name"""
         return utils.get_display_name(message.chat)
 
 
 class MessageLink:
-
     def message_link(self, message: EventMessage) -> Optional[str]:
         """Get link to message from origin channel"""
         if not isinstance(message.peer_id, types.PeerUser):
@@ -36,7 +33,6 @@ class MessageLink:
 
 
 class CopyMessage:
-
     def copy_message(self, message: EventMessage) -> EventMessage:
         """Copy **message** via constructor
 
@@ -77,7 +73,7 @@ class CopyMessage:
             restriction_reason=message.restriction_reason,
             forwards=message.forwards,
             replies=message.replies,
-            action=message.action
+            action=message.action,
         )
         copy._chat = message._chat
         copy._client = message._client
@@ -85,6 +81,6 @@ class CopyMessage:
 
 
 class WhitespacedWordBound:
-    """Whitespaced word's bounds regex
-    """
-    BOUNDARY_REGEX = r'(?:(?<![^\s])(?=[^\s])|(?<=[^\s])(?![^\s]))'
+    """Whitespaced word's bounds regex"""
+
+    BOUNDARY_REGEX = r"(?:(?<![^\s])(?=[^\s])|(?<=[^\s])(?![^\s]))"

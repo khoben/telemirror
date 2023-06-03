@@ -7,17 +7,26 @@ from telethon.extensions import markdown as md_parser
 from ..hints import EventAlbumMessage, EventEntity, EventLike, EventMessage
 from ..misc.urlmatcher import UrlMatcher
 from .base import MessageFilter
-from .mixins import (ChannelName, CopyMessage, MappedChannelName, MessageLink,
-                     WhitespacedWordBound)
+from .mixins import (
+    ChannelName,
+    CopyMessage,
+    MappedChannelName,
+    MessageLink,
+    WhitespacedWordBound,
+)
 
 
 class EmptyMessageFilter(MessageFilter):
     """Do nothing with message"""
 
-    async def process(self, message: EventEntity, event_type: Type[EventLike]) -> Tuple[bool, EventEntity]:
+    async def process(
+        self, message: EventEntity, event_type: Type[EventLike]
+    ) -> Tuple[bool, EventEntity]:
         return True, message
 
-    async def _process_message(self, message: EventMessage, event_type: Type[EventLike]) -> Tuple[bool, EventMessage]:
+    async def _process_message(
+        self, message: EventMessage, event_type: Type[EventLike]
+    ) -> Tuple[bool, EventMessage]:
         return True, message
 
 
@@ -25,21 +34,26 @@ class SkipUrlFilter(MessageFilter):
     """Skip messages with URLs
 
     Args:
-        skip_mention (`bool`, optional): 
+        skip_mention (`bool`, optional):
             Enable skipping text mentions (@channel). Defaults to True.
     """
 
-    def __init__(
-        self: 'SkipUrlFilter',
-        skip_mention: bool = True
-    ) -> None:
+    def __init__(self: "SkipUrlFilter", skip_mention: bool = True) -> None:
         self._skip_mention = skip_mention
 
-    async def _process_message(self, message: EventMessage, event_type: Type[EventLike]) -> Tuple[bool, EventMessage]:
+    async def _process_message(
+        self, message: EventMessage, event_type: Type[EventLike]
+    ) -> Tuple[bool, EventMessage]:
         if message.entities:
             for e in message.entities:
-                if isinstance(e, (types.MessageEntityUrl, types.MessageEntityTextUrl)) or \
-                        (isinstance(e, (types.MessageEntityMention, types.MessageEntityMentionName)) and self._skip_mention):
+                if isinstance(
+                    e, (types.MessageEntityUrl, types.MessageEntityTextUrl)
+                ) or (
+                    isinstance(
+                        e, (types.MessageEntityMention, types.MessageEntityMentionName)
+                    )
+                    and self._skip_mention
+                ):
                     return False, message
 
         if isinstance(message.media, types.MessageMediaWebPage):
@@ -52,33 +66,33 @@ class UrlMessageFilter(CopyMessage, MessageFilter):
     """URLs message filter
 
     Args:
-        placeholder (`str`, optional): 
+        placeholder (`str`, optional):
             URLs and mentions placeholder. Defaults to '***'.
 
-        blacklist (`Set[str]`, optional): 
+        blacklist (`Set[str]`, optional):
             URLs blacklist -- remove only these URLs.
             Defaults to empty set (removes all URLs).
 
-        whitelist (`Set[str]`, optional): 
-            URLs whitelist -- remove all URLs except these. 
+        whitelist (`Set[str]`, optional):
+            URLs whitelist -- remove all URLs except these.
             Will be applied after the `blacklist`. Defaults to empty set.
 
-        filter_mention (`Union[bool, Set[str]]`, optional): 
+        filter_mention (`Union[bool, Set[str]]`, optional):
             Filter text mentions (e.g. @channel, @nickname).
             Defaults to False.
 
-        filter_by_id_mention (`bool`, optional): 
+        filter_by_id_mention (`bool`, optional):
             Filter all mentions without nicknames (by user id).
             Defaults to False.
     """
 
     def __init__(
-        self: 'UrlMessageFilter',
-        placeholder: str = '***',
+        self: "UrlMessageFilter",
+        placeholder: str = "***",
         blacklist: Set[str] = set(),
         whitelist: Set[str] = set(),
         filter_mention: Union[bool, Set[str]] = False,
-        filter_by_id_mention: bool = False
+        filter_by_id_mention: bool = False,
     ) -> None:
         self._placeholder = placeholder
         self._placeholder_len = len(placeholder)
@@ -94,7 +108,9 @@ class UrlMessageFilter(CopyMessage, MessageFilter):
 
         self._filter_by_id_mention = filter_by_id_mention
 
-    async def _process_message(self, message: EventMessage, event_type: Type[EventLike]) -> Tuple[bool, EventMessage]:
+    async def _process_message(
+        self, message: EventMessage, event_type: Type[EventLike]
+    ) -> Tuple[bool, EventMessage]:
         filtered_message = self.copy_message(message)
         # Filter message entities
         if filtered_message.entities:
@@ -103,24 +119,40 @@ class UrlMessageFilter(CopyMessage, MessageFilter):
             for entity, entity_text in filtered_message.get_entities_text():
                 entity.offset += offset_error
                 # Filter URLs and mentions
-                if (isinstance(entity, types.MessageEntityUrl) and self._url_matcher.match(entity_text)) \
-                        or (isinstance(entity, types.MessageEntityMention) and self._match_mention(entity_text)):
+                if (
+                    isinstance(entity, types.MessageEntityUrl)
+                    and self._url_matcher.match(entity_text)
+                ) or (
+                    isinstance(entity, types.MessageEntityMention)
+                    and self._match_mention(entity_text)
+                ):
                     filtered_message.message = filtered_message.message.replace(
-                        entity_text, self._placeholder, 1)
+                        entity_text, self._placeholder, 1
+                    )
                     offset_error += self._placeholder_len - entity.length
                     continue
 
                 # Keep only 'good' entities
-                if not ((isinstance(entity, types.MessageEntityTextUrl) and self._url_matcher.match(entity.url)) or
-                        (isinstance(entity, types.MessageEntityMentionName) and self._filter_by_id_mention)):
+                if not (
+                    (
+                        isinstance(entity, types.MessageEntityTextUrl)
+                        and self._url_matcher.match(entity.url)
+                    )
+                    or (
+                        isinstance(entity, types.MessageEntityMentionName)
+                        and self._filter_by_id_mention
+                    )
+                ):
                     good_entities.append(entity)
 
             filtered_message.entities = good_entities
 
         # Filter link preview
-        if isinstance(filtered_message.media, types.MessageMediaWebPage) and \
-            isinstance(filtered_message.media.webpage, types.WebPage) and \
-                self._url_matcher.match(filtered_message.media.webpage.url):
+        if (
+            isinstance(filtered_message.media, types.MessageMediaWebPage)
+            and isinstance(filtered_message.media.webpage, types.WebPage)
+            and self._url_matcher.match(filtered_message.media.webpage.url)
+        ):
             filtered_message.media = None
 
         return True, filtered_message
@@ -136,7 +168,7 @@ class UrlMessageFilter(CopyMessage, MessageFilter):
 
 
 class ForwardFormatFilter(ChannelName, MessageLink, CopyMessage, MessageFilter):
-    """Filter that adds a forwarding formatting (markdown supported): 
+    """Filter that adds a forwarding formatting (markdown supported):
 
     Example:
     ```
@@ -146,18 +178,22 @@ class ForwardFormatFilter(ChannelName, MessageLink, CopyMessage, MessageFilter):
     ```
 
     Args:
-        format (str): Forward header format, 
+        format (str): Forward header format,
         where `{channel_name}`, `{message_link}` and `{message_text}`
         are placeholders to actual incoming message values.
     """
 
     MESSAGE_PLACEHOLDER: str = "{message_text}"
-    DEFAULT_FORMAT: str = "{message_text}\n\nForwarded from [{channel_name}]({message_link})"
+    DEFAULT_FORMAT: str = (
+        "{message_text}\n\nForwarded from [{channel_name}]({message_link})"
+    )
 
     def __init__(self, format: str = DEFAULT_FORMAT) -> None:
         self._format = format
 
-    async def _process_message(self, message: EventMessage, event_type: Type[EventLike]) -> Tuple[bool, EventMessage]:
+    async def _process_message(
+        self, message: EventMessage, event_type: Type[EventLike]
+    ) -> Tuple[bool, EventMessage]:
         # Skip format editing for albums
         if message.grouped_id and event_type is events.MessageEdited.Event:
             return True, message
@@ -168,14 +204,14 @@ class ForwardFormatFilter(ChannelName, MessageLink, CopyMessage, MessageFilter):
         filtered_message = self.copy_message(message)
 
         if channel_name and message_link:
-
             pre_formatted_message = self._format.format(
                 channel_name=channel_name,
                 message_link=message_link,
-                message_text=self.MESSAGE_PLACEHOLDER
+                message_text=self.MESSAGE_PLACEHOLDER,
             )
             pre_formatted_text, pre_formatted_entities = md_parser.parse(
-                pre_formatted_message)
+                pre_formatted_message
+            )
 
             message_offset = pre_formatted_text.find(self.MESSAGE_PLACEHOLDER)
 
@@ -184,8 +220,9 @@ class ForwardFormatFilter(ChannelName, MessageLink, CopyMessage, MessageFilter):
                     e.offset += message_offset
 
             if pre_formatted_entities:
-                message_placeholder_length_diff = len(utils.add_surrogate(
-                    message.message)) - len(self.MESSAGE_PLACEHOLDER)
+                message_placeholder_length_diff = len(
+                    utils.add_surrogate(message.message)
+                ) - len(self.MESSAGE_PLACEHOLDER)
                 for e in pre_formatted_entities:
                     if e.offset > message_offset:
                         e.offset += message_placeholder_length_diff
@@ -196,11 +233,14 @@ class ForwardFormatFilter(ChannelName, MessageLink, CopyMessage, MessageFilter):
                     filtered_message.entities = pre_formatted_entities
 
             filtered_message.message = pre_formatted_text.format(
-                message_text=filtered_message.message)
+                message_text=filtered_message.message
+            )
 
         return True, filtered_message
 
-    async def _process_album(self, album: EventAlbumMessage, event_type: Type[EventLike]) -> Tuple[bool, EventAlbumMessage]:
+    async def _process_album(
+        self, album: EventAlbumMessage, event_type: Type[EventLike]
+    ) -> Tuple[bool, EventAlbumMessage]:
         # process first message with non-empty text or first message
         message_album: EventMessage = None
         message_idx: int = 0
@@ -213,14 +253,16 @@ class ForwardFormatFilter(ChannelName, MessageLink, CopyMessage, MessageFilter):
         if not message_album:
             message_album = album[0]
 
-        proceed, album[message_idx] = await self._process_message(message_album, event_type)
+        proceed, album[message_idx] = await self._process_message(
+            message_album, event_type
+        )
 
         return proceed, album
 
 
 class MappedNameForwardFormat(MappedChannelName, ForwardFormatFilter):
     """Filter that adds a forwarding formatting (markdown supported)
-    with mapped channel name: 
+    with mapped channel name:
 
     Example:
     ```
@@ -232,7 +274,7 @@ class MappedNameForwardFormat(MappedChannelName, ForwardFormatFilter):
     Args:
         mapped (dict[int, str]): Mapped channel names: CHANNEL_ID -> CHANNEL_NAME
 
-        format (str): Forward header format, 
+        format (str): Forward header format,
         where `{channel_name}`, `{message_link}` and `{message_text}`
         are placeholders to actual incoming message values.
     """
@@ -249,10 +291,20 @@ class KeywordReplaceFilter(WhitespacedWordBound, CopyMessage, MessageFilter):
     """
 
     def __init__(self, keywords: dict[str, str]) -> None:
-        self._keywords_mapping = [(re.compile(f'{self.BOUNDARY_REGEX}{k}{self.BOUNDARY_REGEX}',
-                                              flags=re.IGNORECASE), v) for k, v in keywords.items()]
+        self._keywords_mapping = [
+            (
+                re.compile(
+                    f"{self.BOUNDARY_REGEX}{k}{self.BOUNDARY_REGEX}",
+                    flags=re.IGNORECASE,
+                ),
+                v,
+            )
+            for k, v in keywords.items()
+        ]
 
-    async def _process_message(self, message: EventMessage, event_type: Type[EventLike]) -> Tuple[bool, EventMessage]:
+    async def _process_message(
+        self, message: EventMessage, event_type: Type[EventLike]
+    ) -> Tuple[bool, EventMessage]:
         filtered_message = self.copy_message(message)
         unparsed_text = filtered_message.message
 
@@ -262,8 +314,7 @@ class KeywordReplaceFilter(WhitespacedWordBound, CopyMessage, MessageFilter):
             entities = []
 
         if unparsed_text:
-
-            replace_to = ''
+            replace_to = ""
 
             def sub_middleware(match: re.Match) -> str:
                 start_match = match.start()
@@ -289,24 +340,33 @@ class KeywordReplaceFilter(WhitespacedWordBound, CopyMessage, MessageFilter):
 
 
 class SkipWithKeywordsFilter(WhitespacedWordBound, MessageFilter):
-    """Skips message if some keyword found
-    """
+    """Skips message if some keyword found"""
 
     def __init__(self, keywords: set[str]) -> None:
         self._regex = re.compile(
-            '|'.join([f'{self.BOUNDARY_REGEX}{k}{self.BOUNDARY_REGEX}' for k in keywords]), flags=re.IGNORECASE)
+            "|".join(
+                [f"{self.BOUNDARY_REGEX}{k}{self.BOUNDARY_REGEX}" for k in keywords]
+            ),
+            flags=re.IGNORECASE,
+        )
 
-    async def _process_message(self, message: EventMessage, event_type: Type[EventLike]) -> Tuple[bool, EventMessage]:
+    async def _process_message(
+        self, message: EventMessage, event_type: Type[EventLike]
+    ) -> Tuple[bool, EventMessage]:
         if self._regex.search(message.message):
             return False, message
         return True, message
 
 
 class SkipAllFilter(MessageFilter):
-    """Skips all messages
-    """
-    async def process(self, message: EventEntity, event_type: Type[EventLike]) -> Tuple[bool, EventEntity]:
+    """Skips all messages"""
+
+    async def process(
+        self, message: EventEntity, event_type: Type[EventLike]
+    ) -> Tuple[bool, EventEntity]:
         return False, message
 
-    async def _process_message(self, message: EventMessage, event_type: Type[EventLike]) -> Tuple[bool, EventMessage]:
+    async def _process_message(
+        self, message: EventMessage, event_type: Type[EventLike]
+    ) -> Tuple[bool, EventMessage]:
         return False, message

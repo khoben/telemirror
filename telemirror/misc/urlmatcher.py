@@ -21,10 +21,7 @@ class UrlMatcher:
     PATH_GROUP_INDEX = 3
 
     # RFC 3986 2.2 gen-delims
-    COLON, AT = (
-        ":",
-        "@"
-    )
+    COLON, AT = (":", "@")
 
     DIGITS = "0123456789"
 
@@ -32,11 +29,11 @@ class UrlMatcher:
         """UrlMatcher
 
         Args:
-            blacklist (set, optional): 
+            blacklist (set, optional):
                 URLs that will be matched. Defaults to set().
 
-            whitelist (set, optional): 
-                URLs that will be NOT matched. 
+            whitelist (set, optional):
+                URLs that will be NOT matched.
                 Will be applied after the `blacklist`. Defaults to set().
         """
         self._blacklist = blacklist
@@ -58,14 +55,18 @@ class UrlMatcher:
         host = host.lower()
 
         if not path:
-            path = ''
+            path = ""
             full_url = path
         else:
             # ///path -> /path
-            path = f'/{path.lstrip("/").lower()}'
-            full_url = f'{host}{path}'
+            path = f"/{path.lstrip('/').lower()}"
+            full_url = f"{host}{path}"
 
-        if self._blacklist and host not in self._blacklist and full_url not in self._blacklist:
+        if (
+            self._blacklist
+            and host not in self._blacklist
+            and full_url not in self._blacklist
+        ):
             return False
 
         if self._whitelist and (host in self._whitelist or full_url in self._whitelist):
