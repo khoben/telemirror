@@ -76,10 +76,13 @@ class UrlMatcher:
 
         return True
 
-    def _get_url_components(self, url: str) -> Tuple[Optional[str]]:
+    def _get_url_components(self, url: str) -> Tuple[Optional[str], Optional[str]]:
         """Get host and path from [url]"""
-        # prepend default http scheme
-        url = f"http://{url.partition('://')[2]}"
+        scheme_pos = url.find("://")
+        if scheme_pos == -1:
+            # prepend default http scheme
+            url = f"http://{url}"
+        
         url_parts = self.RE.match(url)
         if url_parts is None:
             return None, None
