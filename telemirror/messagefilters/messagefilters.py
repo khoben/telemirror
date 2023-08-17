@@ -114,19 +114,21 @@ class UrlMessageFilter(CopyMessage, MessageFilter):
         filtered_message = self.copy_message(message)
         # Filter message entities
         if filtered_message.entities:
-            good_entities: List[types.TypeMessageEntity] = []
+            filtered_entities: List[types.TypeMessageEntity] = []
             offset_error = 0
             for entity, entity_text in filtered_message.get_entities_text():
                 entity.offset += offset_error
-                # Filter URLs and mentions
+                
+                # Replace URLs and mentions within message text
                 if (
-                    isinstance(
-                        entity, (types.MessageEntityUrl, types.MessageEntityTextUrl)
-                    )
+                    isinstance(entity, types.MessageEntityUrl)
                     and self._url_matcher.match(entity_text)
                 ) or (
                     isinstance(entity, types.MessageEntityMention)
                     and self._match_mention(entity_text)
+                ) or (
+                    isinstance(entity, types.MessageEntityTextUrl)
+                    and self._url_matcher.match(entity.url)
                 ):
                     filtered_message.message = filtered_message.message.replace(
                         entity_text, self._placeholder, 1
@@ -134,20 +136,14 @@ class UrlMessageFilter(CopyMessage, MessageFilter):
                     offset_error += self._placeholder_len - entity.length
                     continue
 
-                # Keep only 'good' entities
+                # Filter formatting entities
                 if not (
-                    (
-                        isinstance(entity, types.MessageEntityTextUrl)
-                        and self._url_matcher.match(entity.url)
-                    )
-                    or (
-                        isinstance(entity, types.MessageEntityMentionName)
-                        and self._filter_by_id_mention
-                    )
+                    isinstance(entity, types.MessageEntityMentionName)
+                    and self._filter_by_id_mention
                 ):
-                    good_entities.append(entity)
+                    filtered_entities.append(entity)
 
-            filtered_message.entities = good_entities
+            filtered_message.entities = filtered_entities
 
         # Filter link preview
         if (
