@@ -1,6 +1,6 @@
-telethon==1.28.5
+telethon==1.29.2
 cryptg==0.4.0
-psycopg[binary,pool]==3.1.9
+psycopg[binary,pool]==3.1.10
 python-decouple==3.8
-PyYAML==6.0
-aiohttp==3.8.4
+PyYAML==6.0.1
+aiohttp==3.8.5
