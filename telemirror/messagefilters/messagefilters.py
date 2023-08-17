@@ -120,7 +120,9 @@ class UrlMessageFilter(CopyMessage, MessageFilter):
                 entity.offset += offset_error
                 # Filter URLs and mentions
                 if (
-                    isinstance(entity, types.MessageEntityUrl)
+                    isinstance(
+                        entity, (types.MessageEntityUrl, types.MessageEntityTextUrl)
+                    )
                     and self._url_matcher.match(entity_text)
                 ) or (
                     isinstance(entity, types.MessageEntityMention)
