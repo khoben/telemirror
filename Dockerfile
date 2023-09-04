@@ -1,10 +1,24 @@
-FROM python:3.11-slim-bullseye
+FROM python:3.11-slim-bullseye as build
+
+ENV PIP_NO_CACHE_DIR=1
 
 WORKDIR /app
-COPY . /app
+COPY ./requirements.txt /app/requirements.txt
+RUN pip install --target=/app/dependencies -r requirements.txt
 
-RUN pip install -r requirements.txt
+FROM build as release
 
-EXPOSE 8000
+RUN useradd -m apprunner
+USER apprunner
+
+ENV PYTHONUNBUFFERED=1
+
+WORKDIR /app
+COPY --chown=apprunner: . /app
+
+ENV PYTHONPATH="${PYTHONPATH}:/app/dependencies"
+
+ARG PORT=8000
+EXPOSE ${PORT}
 
 CMD ["python", "main.py"]
