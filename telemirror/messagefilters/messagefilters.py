@@ -205,6 +205,7 @@ class ForwardFormatFilter(ChannelName, MessageLink, CopyMessage, MessageFilter):
 
     def __init__(self, format: str = DEFAULT_FORMAT) -> None:
         self._format = format
+        self._parser = md_parser
 
     async def _process_message(
         self, message: EventMessage, event_type: Type[EventLike]
@@ -224,7 +225,7 @@ class ForwardFormatFilter(ChannelName, MessageLink, CopyMessage, MessageFilter):
                 message_link=message_link,
                 message_text=self.MESSAGE_PLACEHOLDER,
             )
-            pre_formatted_text, pre_formatted_entities = md_parser.parse(
+            pre_formatted_text, pre_formatted_entities = self._parser.parse(
                 pre_formatted_message
             )
 
