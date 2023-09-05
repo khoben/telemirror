@@ -381,6 +381,8 @@ class Mirroring(EventHandlers):
         self.add_event_handler(
             self.on_new_message, events.NewMessage(chats=source_chats)
         )
+        # Increase album hack delay
+        events.album._HACK_DELAY = 1.01
         self.add_event_handler(self.on_album, events.Album(chats=source_chats))
         self.add_event_handler(
             self.on_edit_message, events.MessageEdited(chats=source_chats)
