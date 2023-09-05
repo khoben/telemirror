@@ -1,5 +1,5 @@
 import re
-from typing import List, Optional, Set, Tuple, Type, Union
+from typing import List, Set, Tuple, Type, Union
 
 from telethon import events, types, utils
 from telethon.extensions import markdown as md_parser
@@ -214,8 +214,8 @@ class ForwardFormatFilter(ChannelName, MessageLink, CopyMessage, MessageFilter):
         if message.grouped_id and event_type is events.MessageEdited.Event:
             return True, message
 
-        message_link: Optional[str] = self.message_link(message)
-        channel_name: str = self.channel_name(message)
+        message_link = self.message_link(message)
+        channel_name = self.channel_name(message)
 
         filtered_message = self.copy_message(message)
 
@@ -231,12 +231,15 @@ class ForwardFormatFilter(ChannelName, MessageLink, CopyMessage, MessageFilter):
 
             message_offset = pre_formatted_text.find(self.MESSAGE_PLACEHOLDER)
 
-            if filtered_message.entities:
+            if filtered_message.entities and message_offset > 0:
+                # Move message entities to start of message placeholder
                 for e in filtered_message.entities:
                     e.offset += message_offset
 
             if pre_formatted_entities:
+                # Fix formatting entities after message placeholder
                 message_placeholder_length_diff = len(
+                    # Telegram offsets are calculated with surrogates
                     utils.add_surrogate(message.message)
                 ) - len(self.MESSAGE_PLACEHOLDER)
                 for e in pre_formatted_entities:
