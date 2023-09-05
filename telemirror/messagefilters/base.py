@@ -27,7 +27,9 @@ class MessageFilter(Protocol):
         """
         if isinstance(entity, EventMessage):
             return await self._process_message(entity, event_type)
-        elif isinstance(entity, list):
+        
+        if isinstance(entity, list):
+            # Check for `EventAlbumMessage`: List of messages
             return await self._process_album(entity, event_type)
 
         return True, entity
