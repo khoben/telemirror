@@ -109,7 +109,6 @@ class UrlMessageFilter(CopyMessage, MessageFilter):
         filter_by_id_mention: bool = False,
     ) -> None:
         self._placeholder = placeholder
-        self._placeholder_len = len(placeholder)
 
         self._url_matcher = UrlMatcher(blacklist, whitelist)
 
@@ -132,22 +131,26 @@ class UrlMessageFilter(CopyMessage, MessageFilter):
             offset_error = 0
             for entity, entity_text in filtered_message.get_entities_text():
                 entity.offset += offset_error
-                
+
                 # Replace URLs and mentions within message text
                 if (
-                    isinstance(entity, types.MessageEntityUrl)
-                    and self._url_matcher.match(entity_text)
-                ) or (
-                    isinstance(entity, types.MessageEntityMention)
-                    and self._match_mention(entity_text)
-                ) or (
-                    isinstance(entity, types.MessageEntityTextUrl)
-                    and self._url_matcher.match(entity.url)
+                    (
+                        isinstance(entity, types.MessageEntityUrl)
+                        and self._url_matcher.match(entity_text)
+                    )
+                    or (
+                        isinstance(entity, types.MessageEntityMention)
+                        and self._match_mention(entity_text)
+                    )
+                    or (
+                        isinstance(entity, types.MessageEntityTextUrl)
+                        and self._url_matcher.match(entity.url)
+                    )
                 ):
                     filtered_message.message = filtered_message.message.replace(
                         entity_text, self._placeholder, 1
                     )
-                    offset_error += self._placeholder_len - entity.length
+                    offset_error += len(self._placeholder) - entity.length
                     continue
 
                 # Filter formatting entities
