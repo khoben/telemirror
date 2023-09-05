@@ -30,6 +30,20 @@ class EmptyMessageFilter(MessageFilter):
         return True, message
 
 
+class SkipAllFilter(MessageFilter):
+    """Skips all messages"""
+
+    async def process(
+        self, message: EventEntity, event_type: Type[EventLike]
+    ) -> Tuple[bool, EventEntity]:
+        return False, message
+
+    async def _process_message(
+        self, message: EventMessage, event_type: Type[EventLike]
+    ) -> Tuple[bool, EventMessage]:
+        return False, message
+
+
 class SkipUrlFilter(MessageFilter):
     """Skip messages with URLs
 
@@ -354,17 +368,3 @@ class SkipWithKeywordsFilter(WhitespacedWordBound, MessageFilter):
         if self._regex.search(message.message):
             return False, message
         return True, message
-
-
-class SkipAllFilter(MessageFilter):
-    """Skips all messages"""
-
-    async def process(
-        self, message: EventEntity, event_type: Type[EventLike]
-    ) -> Tuple[bool, EventEntity]:
-        return False, message
-
-    async def _process_message(
-        self, message: EventMessage, event_type: Type[EventLike]
-    ) -> Tuple[bool, EventMessage]:
-        return False, message
