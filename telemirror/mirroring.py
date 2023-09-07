@@ -2,350 +2,358 @@ import logging
 from typing import Dict, List, Union
 
 from telethon import TelegramClient, errors, events, utils
-from telethon.errors import MessageNotModifiedError
-from telethon.extensions import markdown
 from telethon.sessions import StringSession
 from telethon.tl import types
 
 from config import DirectionConfig
+from telemirror.hints import EventAlbumMessage, EventLike, EventMessage
+from telemirror.storage import Database, MirrorMessage
 
-from .hints import EventAlbumMessage, EventLike, EventMessage
-from .storage import Database, MirrorMessage
 
-
-class EventHandlers:
-    async def on_new_message(
-        self: "MirrorTelegramClient", event: events.NewMessage.Event
+class EventProcessor:
+    def __init__(
+        self: "EventProcessor",
+        chat_mapping: Dict[int, Dict[int, DirectionConfig]],
+        database: Database,
+        client: TelegramClient,
+        logger: logging.Logger,
     ) -> None:
-        """NewMessage event handler"""
+        """Message event processor
 
-        # Skip albums
-        if hasattr(event, "grouped_id") and event.grouped_id is not None:
+        Args:
+            chat_mapping (`Dict[int, Dict[int, DirectionConfig]]`): Chats mappings
+            database (`Database`): Message IDs storage
+            client (`TelegramClient`): Message sender client
+            logger (`logging.Logger`): Logger
+        """
+        self._chat_mapping = chat_mapping
+        self._database = database
+        self._client = client
+        self._logger = logger
+
+    @staticmethod
+    def __handle_exceptions(fn):
+        from functools import wraps
+
+        @wraps(fn)
+        async def wrapper(self, *args, **kw):
+            try:
+                return await fn(self, *args, **kw)
+            except Exception as e:
+                if isinstance(self, EventProcessor):
+                    self._logger.error(e, exc_info=True)
+
+        return wrapper
+
+    @__handle_exceptions
+    async def new_message(
+        self: "EventProcessor", chat_id: int, message: EventMessage, message_link: str
+    ):
+        restricted_saving_content: bool = message.chat and message.chat.noforwards
+
+        outgoing_chats = self._chat_mapping.get(chat_id)
+        if not outgoing_chats:
+            self._logger.warning(
+                f"[New message]: No target chats for message {message_link}"
+            )
             return
 
-        incoming_chat_id: int = event.chat_id
-        incoming_message: EventMessage = event.message
-        incoming_message_link: str = self.event_message_link(event)
+        self._logger.info(f"[New message]: {message_link}")
 
-        restricted_saving_content: bool = (
-            incoming_message.chat and incoming_message.chat.noforwards
+        reply_to_messages: dict[int, int] = (
+            {
+                m.mirror_channel: m.mirror_id
+                for m in await self._database.get_messages(
+                    message.reply_to_msg_id, chat_id
+                )
+            }
+            if message.is_reply
+            else {}
         )
 
-        try:
-            outgoing_chats = self._chat_mapping.get(incoming_chat_id)
-            if not outgoing_chats:
+        # Copy quiz poll as simple poll
+        if isinstance(message.media, types.MessageMediaPoll):
+            message.media.poll.quiz = None
+
+        for outgoing_chat, config in outgoing_chats.items():
+            if (
+                restricted_saving_content
+                and not config.filters.restricted_content_allowed
+            ):
                 self._logger.warning(
-                    f"[New message]: No target chats for message {incoming_message_link}"
+                    f"Forwards from channel#{chat_id} "
+                    f"with `restricted saving content` "
+                    f"enabled to channel#{outgoing_chat} are not supported."
                 )
-                return
+                continue
 
-            self._logger.info(f"[New message]: {incoming_message_link}")
-
-            reply_to_messages: dict[int, int] = (
-                {
-                    m.mirror_channel: m.mirror_id
-                    for m in await self._database.get_messages(
-                        incoming_message.reply_to_msg_id, incoming_chat_id
-                    )
-                }
-                if incoming_message.is_reply
-                else {}
+            filtered_message: EventMessage
+            proceed, filtered_message = await config.filters.process(
+                message, events.NewMessage.Event
             )
 
-            # Copy quiz poll as simple poll
-            if isinstance(incoming_message.media, types.MessageMediaPoll):
-                incoming_message.media.poll.quiz = None
+            if proceed is False:
+                self._logger.info(
+                    f"[New message]: Message {message_link} was skipped "
+                    f"by the filter for chat#{outgoing_chat}"
+                )
+                continue
 
-            for outgoing_chat, config in outgoing_chats.items():
-                if (
-                    restricted_saving_content
-                    and not config.filters.restricted_content_allowed
-                ):
-                    self._logger.warning(
-                        f"Forwards from channel#{incoming_chat_id} "
-                        f"with `restricted saving content` "
-                        f"enabled to channel#{outgoing_chat} are not supported."
+            outgoing_message = None
+            try:
+                outgoing_message = await self._client.send_message(
+                    entity=outgoing_chat,
+                    message=filtered_message,
+                    formatting_entities=filtered_message.entities,
+                    reply_to=reply_to_messages.get(outgoing_chat),
+                )
+            except Exception as e:
+                self._logger.error(
+                    f"Error while sending message to chat#{outgoing_chat}. "
+                    f"{type(e).__name__}: {e}"
+                )
+                continue
+
+            if outgoing_message:
+                await self._database.insert(
+                    MirrorMessage(
+                        original_id=filtered_message.id,
+                        original_channel=chat_id,
+                        mirror_id=outgoing_message.id,
+                        mirror_channel=outgoing_chat,
                     )
-                    continue
-
-                filtered_message: EventMessage
-                proceed, filtered_message = await config.filters.process(
-                    incoming_message, events.NewMessage.Event
                 )
 
-                if proceed is False:
-                    self._logger.info(
-                        f"[New message]: Message {incoming_message_link} was skipped "
-                        f"by the filter for chat#{outgoing_chat}"
-                    )
-                    continue
-
-                outgoing_message = None
-                try:
-                    outgoing_message = await self.send_message(
-                        entity=outgoing_chat,
-                        message=filtered_message,
-                        formatting_entities=filtered_message.entities,
-                        reply_to=reply_to_messages.get(outgoing_chat),
-                    )
-                except Exception as e:
-                    self._logger.error(
-                        f"Error while sending message to chat#{outgoing_chat}. "
-                        f"{type(e).__name__}: {e}"
-                    )
-                    continue
-
-                if outgoing_message:
-                    await self._database.insert(
-                        MirrorMessage(
-                            original_id=filtered_message.id,
-                            original_channel=incoming_chat_id,
-                            mirror_id=outgoing_message.id,
-                            mirror_channel=outgoing_chat,
-                        )
-                    )
-        except Exception as e:
-            self._logger.error(e, exc_info=True)
-
-    async def on_album(self: "MirrorTelegramClient", event: events.Album.Event) -> None:
-        """Album event handler"""
-
-        incoming_chat_id: int = event.chat_id
-        incoming_album: EventAlbumMessage = event.messages
-        incoming_first_message: EventMessage = incoming_album[0]
-        incoming_message_link: str = self.event_message_link(event)
-
+    @__handle_exceptions
+    async def new_album(
+        self: "EventProcessor", chat_id: int, album: EventAlbumMessage, album_link: str
+    ) -> None:
+        incoming_first_message: EventMessage = album[0]
         restricted_saving_content: bool = (
             incoming_first_message.chat and incoming_first_message.chat.noforwards
         )
 
-        try:
-            outgoing_chats = self._chat_mapping.get(incoming_chat_id)
-            if not outgoing_chats:
-                self._logger.warning(
-                    f"[New album]: No target chats for chat#{incoming_chat_id}"
-                )
-                return
-
-            self._logger.info(f"[New album]: {incoming_message_link}")
-
-            reply_to_messages: dict[int, int] = (
-                {
-                    m.mirror_channel: m.mirror_id
-                    for m in await self._database.get_messages(
-                        incoming_first_message.reply_to_msg_id, incoming_chat_id
-                    )
-                }
-                if incoming_first_message.is_reply
-                else {}
-            )
-
-            for outgoing_chat, config in outgoing_chats.items():
-                if (
-                    restricted_saving_content
-                    and not config.filters.restricted_content_allowed
-                ):
-                    self._logger.warning(
-                        f"Forwards from channel#{incoming_chat_id} with "
-                        f"`restricted saving content` "
-                        f"enabled to channel#{outgoing_chat} are not supported."
-                    )
-                    continue
-
-                filtered_album: EventAlbumMessage
-                proceed, filtered_album = await config.filters.process(
-                    incoming_album, events.Album.Event
-                )
-
-                if proceed is False:
-                    self._logger.info(
-                        f"[New album]: Message {incoming_message_link} was skipped "
-                        f"by the filter for chat#{outgoing_chat}"
-                    )
-                    continue
-
-                idx: List[int] = []
-                files: List[types.TypeMessageMedia] = []
-                captions: List[str] = []
-                for incoming_message in filtered_album:
-                    idx.append(incoming_message.id)
-                    files.append(incoming_message.media)
-                    # Pass unparsed text, since: https://github.com/LonamiWebs/Telethon/issues/3065
-                    captions.append(incoming_message.text)
-
-                outgoing_messages = None
-                try:
-                    outgoing_messages: List[types.Message] = await self.send_file(
-                        entity=outgoing_chat,
-                        caption=captions,
-                        file=files,
-                        reply_to=reply_to_messages.get(outgoing_chat),
-                    )
-                except Exception as e:
-                    self._logger.error(
-                        f"Error while sending album to chat#{outgoing_chat}. "
-                        f"{type(e).__name__}: {e}"
-                    )
-                    continue
-
-                # Expect non-empty list of messages
-                if outgoing_messages and utils.is_list_like(outgoing_messages):
-                    await self._database.insert_batch(
-                        [
-                            MirrorMessage(
-                                original_id=idx[message_index],
-                                original_channel=incoming_chat_id,
-                                mirror_id=outgoing_message.id,
-                                mirror_channel=outgoing_chat,
-                            )
-                            for message_index, outgoing_message in enumerate(
-                                outgoing_messages
-                            )
-                        ]
-                    )
-
-        except Exception as e:
-            self._logger.error(e, exc_info=True)
-
-    async def on_edit_message(
-        self: "MirrorTelegramClient", event: events.MessageEdited.Event
-    ) -> None:
-        """MessageEdited event handler"""
-
-        # Skip updates with edit_hide attribute (reactions and so on...)
-        if event.message.edit_hide is True:
+        outgoing_chats = self._chat_mapping.get(chat_id)
+        if not outgoing_chats:
+            self._logger.warning(f"[New album]: No target chats for chat#{chat_id}")
             return
 
-        incoming_chat_id: int = event.chat_id
-        incoming_message: EventMessage = event.message
-        incoming_message_link: str = self.event_message_link(event)
+        self._logger.info(f"[New album]: {album_link}")
 
-        try:
-            outgoing_messages = await self._database.get_messages(
-                incoming_message.id, incoming_chat_id
-            )
-            if not outgoing_messages:
+        reply_to_messages: dict[int, int] = (
+            {
+                m.mirror_channel: m.mirror_id
+                for m in await self._database.get_messages(
+                    incoming_first_message.reply_to_msg_id, chat_id
+                )
+            }
+            if incoming_first_message.is_reply
+            else {}
+        )
+
+        for outgoing_chat, config in outgoing_chats.items():
+            if (
+                restricted_saving_content
+                and not config.filters.restricted_content_allowed
+            ):
                 self._logger.warning(
-                    f"[Edit message]: No target messages to edit for {incoming_message_link}"
+                    f"Forwards from channel#{chat_id} with "
+                    f"`restricted saving content` "
+                    f"enabled to channel#{outgoing_chat} are not supported."
                 )
-                return
+                continue
 
-            self._logger.info(f"[Edit message]: {incoming_message_link}")
+            filtered_album: EventAlbumMessage
+            proceed, filtered_album = await config.filters.process(
+                album, events.Album.Event
+            )
 
-            for outgoing_message in outgoing_messages:
-                config = self._chat_mapping.get(incoming_chat_id, {}).get(
-                    outgoing_message.mirror_channel
+            if proceed is False:
+                self._logger.info(
+                    f"[New album]: Message {album_link} was skipped "
+                    f"by the filter for chat#{outgoing_chat}"
+                )
+                continue
+
+            idx: List[int] = []
+            files: List[types.TypeMessageMedia] = []
+            captions: List[str] = []
+            for incoming_message in filtered_album:
+                idx.append(incoming_message.id)
+                files.append(incoming_message.media)
+                # Pass unparsed text, since: https://github.com/LonamiWebs/Telethon/issues/3065
+                captions.append(incoming_message.text)
+
+            outgoing_messages = None
+            try:
+                outgoing_messages: List[types.Message] = await self._client.send_file(
+                    entity=outgoing_chat,
+                    caption=captions,
+                    file=files,
+                    reply_to=reply_to_messages.get(outgoing_chat),
+                )
+            except Exception as e:
+                self._logger.error(
+                    f"Error while sending album to chat#{outgoing_chat}. "
+                    f"{type(e).__name__}: {e}"
+                )
+                continue
+
+            # Expect non-empty list of messages
+            if outgoing_messages and utils.is_list_like(outgoing_messages):
+                await self._database.insert_batch(
+                    [
+                        MirrorMessage(
+                            original_id=idx[message_index],
+                            original_channel=chat_id,
+                            mirror_id=outgoing_message.id,
+                            mirror_channel=outgoing_chat,
+                        )
+                        for message_index, outgoing_message in enumerate(
+                            outgoing_messages
+                        )
+                    ]
                 )
 
-                if config is None:
-                    self._logger.warning(
-                        f"[Edit message]: No direction config for "
-                        f"{incoming_chat_id}->{outgoing_message.mirror_channel}"
-                    )
-                    continue
+    @__handle_exceptions
+    async def edit_message(
+        self: "EventProcessor", chat_id: int, message: EventMessage, message_link: str
+    ):
+        outgoing_messages = await self._database.get_messages(message.id, chat_id)
+        if not outgoing_messages:
+            self._logger.warning(
+                f"[Edit message]: No target messages to edit for {message_link}"
+            )
+            return
 
-                if config.disable_edit is True:
-                    continue
+        self._logger.info(f"[Edit message]: {message_link}")
 
-                proceed, filtered_message = await config.filters.process(
-                    incoming_message, events.MessageEdited.Event
+        for outgoing_message in outgoing_messages:
+            config = self._chat_mapping.get(chat_id, {}).get(
+                outgoing_message.mirror_channel
+            )
+
+            if config is None:
+                self._logger.warning(
+                    f"[Edit message]: No direction config for "
+                    f"{chat_id}->{outgoing_message.mirror_channel}"
                 )
-                if proceed is False:
-                    self._logger.info(
-                        f"[Edit message]: Message {incoming_message_link} was skipped "
-                        f"by the filter for chat#{outgoing_message.mirror_channel}"
-                    )
-                    continue
+                continue
 
-                try:
-                    await self.edit_message(
-                        entity=outgoing_message.mirror_channel,
-                        message=outgoing_message.mirror_id,
-                        text=filtered_message.message,
-                        formatting_entities=filtered_message.entities,
-                        file=filtered_message.media,
-                        link_preview=isinstance(
-                            filtered_message.media, types.MessageMediaWebPage
-                        ),
-                    )
-                except MessageNotModifiedError:
-                    self._logger.warning(
-                        f"Suppressed MessageNotModifiedError for message "
-                        f"{outgoing_message.mirror_channel}#{outgoing_message.mirror_id}"
-                    )
+            if config.disable_edit is True:
+                continue
 
-                except Exception as e:
-                    self._logger.error(
-                        f"Error while editing message "
-                        f"{outgoing_message.mirror_channel}#{outgoing_message.mirror_id}. "
-                        f"{type(e).__name__}: {e}"
-                    )
+            proceed, filtered_message = await config.filters.process(
+                message, events.MessageEdited.Event
+            )
+            if proceed is False:
+                self._logger.info(
+                    f"[Edit message]: Message {message_link} was skipped "
+                    f"by the filter for chat#{outgoing_message.mirror_channel}"
+                )
+                continue
 
-        except Exception as e:
-            self._logger.error(e, exc_info=True)
+            try:
+                await self._client.edit_message(
+                    entity=outgoing_message.mirror_channel,
+                    message=outgoing_message.mirror_id,
+                    text=filtered_message.message,
+                    formatting_entities=filtered_message.entities,
+                    file=filtered_message.media,
+                    link_preview=isinstance(
+                        filtered_message.media, types.MessageMediaWebPage
+                    ),
+                )
+            except errors.MessageNotModifiedError:
+                self._logger.warning(
+                    f"Suppressed MessageNotModifiedError for message "
+                    f"{outgoing_message.mirror_channel}#{outgoing_message.mirror_id}"
+                )
 
-    async def on_deleted_message(
-        self: "MirrorTelegramClient", event: events.MessageDeleted.Event
+            except Exception as e:
+                self._logger.error(
+                    f"Error while editing message "
+                    f"{outgoing_message.mirror_channel}#{outgoing_message.mirror_id}. "
+                    f"{type(e).__name__}: {e}"
+                )
+
+    @__handle_exceptions
+    async def delete_message(
+        self: "EventProcessor", chat_id: int, message_ids: List[int]
     ) -> None:
-        """MessageDeleted event handler"""
-
-        incoming_chat_id: int = event.chat_id
-        deleted_ids: List[int] = event.deleted_ids
-
-        try:
-            deleting_messages = await self._database.get_messages_batch(
-                deleted_ids, incoming_chat_id
+        deleting_messages = await self._database.get_messages_batch(
+            message_ids, chat_id
+        )
+        if not deleting_messages:
+            self._logger.warning(
+                f"[Delete message]: No target messages to delete " f"for chat#{chat_id}"
             )
-            if not deleting_messages:
+            return
+
+        self._logger.info(
+            f"[Delete message]: Delete {len(message_ids)} " f"messages from {chat_id}"
+        )
+
+        delete_per_channel: Dict[int, List[int]] = {}
+
+        for deleting_message in deleting_messages:
+            config = self._chat_mapping.get(chat_id, {}).get(
+                deleting_message.mirror_channel
+            )
+
+            if config is None:
                 self._logger.warning(
-                    f"[Delete message]: No target messages to delete "
-                    f"for chat#{incoming_chat_id}"
+                    f"[Delete message]: No direction config for "
+                    f"{chat_id}->{deleting_message.mirror_channel}"
                 )
-                return
+                continue
 
-            self._logger.info(
-                f"[Delete message]: Delete {len(deleted_ids)} "
-                f"messages from {incoming_chat_id}"
+            if config.disable_delete is True:
+                continue
+
+            delete_per_channel.setdefault(deleting_message.mirror_channel, []).append(
+                deleting_message.mirror_id
             )
 
-            delete_per_channel: Dict[int, List[int]] = {}
-
-            for deleting_message in deleting_messages:
-                config = self._chat_mapping.get(incoming_chat_id, {}).get(
-                    deleting_message.mirror_channel
+        for channel_id, message_list in delete_per_channel.items():
+            try:
+                await self._client.delete_messages(
+                    entity=channel_id, message_ids=message_list
+                )
+            except Exception as e:
+                self._logger.error(
+                    f"Error while deleting messages from chat#{channel_id}. "
+                    f"{type(e).__name__}: {e}"
                 )
 
-                if config is None:
-                    self._logger.warning(
-                        f"[Delete message]: No direction config for "
-                        f"{incoming_chat_id}->{deleting_message.mirror_channel}"
-                    )
-                    continue
+        await self._database.delete_messages_batch(message_ids, chat_id)
 
-                if config.disable_delete is True:
-                    continue
 
-                delete_per_channel.setdefault(
-                    deleting_message.mirror_channel, []
-                ).append(deleting_message.mirror_id)
+class EventHandlers:
+    def __init__(
+        self: "EventHandlers",
+        client: TelegramClient,
+        chats: List[int],
+        processor: EventProcessor,
+    ) -> None:
+        """Message event handler
 
-            for channel_id, message_list in delete_per_channel.items():
-                try:
-                    await self.delete_messages(
-                        entity=channel_id, message_ids=message_list
-                    )
-                except Exception as e:
-                    self._logger.error(
-                        f"Error while deleting messages from chat#{channel_id}. "
-                        f"{type(e).__name__}: {e}"
-                    )
+        Args:
+            client (`TelegramClient`): Message receiver client
+            chats (`List[int]`): List of chats to be observed
+            processor (`EventProcessor`): Event processor
+        """
+        client.add_event_handler(self.on_new_message, events.NewMessage(chats=chats))
+        client.add_event_handler(self.on_album, events.Album(chats=chats))
+        client.add_event_handler(
+            self.on_edit_message, events.MessageEdited(chats=chats)
+        )
+        client.add_event_handler(
+            self.on_deleted_message, events.MessageDeleted(chats=chats)
+        )
+        self._processor = processor
 
-            await self._database.delete_messages_batch(deleted_ids, incoming_chat_id)
-
-        except Exception as e:
-            self._logger.error(e, exc_info=True)
-
-    def event_message_link(self: "MirrorTelegramClient", event: EventLike) -> str:
+    def event_message_link(self: "EventHandlers", event: EventLike) -> str:
         """Get link to event message"""
 
         if isinstance(event, (events.NewMessage.Event, events.MessageEdited.Event)):
@@ -359,12 +367,77 @@ class EventHandlers:
             f"https://t.me/c/{utils.resolve_id(event.chat_id)[0]}/{incoming_message_id}"
         )
 
+    async def on_new_message(
+        self: "EventHandlers", event: events.NewMessage.Event
+    ) -> None:
+        """NewMessage event handler"""
 
-class Mirroring(EventHandlers):
+        # Skip albums
+        if hasattr(event, "grouped_id") and event.grouped_id is not None:
+            return
+
+        incoming_chat_id: int = event.chat_id
+        incoming_message: EventMessage = event.message
+        incoming_message_link: str = self.event_message_link(event)
+
+        await self._processor.new_message(
+            chat_id=incoming_chat_id,
+            message=incoming_message,
+            message_link=incoming_message_link,
+        )
+
+    async def on_album(self: "EventHandlers", event: events.Album.Event) -> None:
+        """Album event handler"""
+
+        incoming_chat_id: int = event.chat_id
+        incoming_album: EventAlbumMessage = event.messages
+        incoming_album_link: str = self.event_message_link(event)
+
+        await self._processor.new_album(
+            chat_id=incoming_chat_id,
+            album=incoming_album,
+            album_link=incoming_album_link,
+        )
+
+    async def on_edit_message(
+        self: "EventHandlers", event: events.MessageEdited.Event
+    ) -> None:
+        """MessageEdited event handler"""
+
+        # Skip updates with edit_hide attribute (reactions and so on...)
+        if event.message.edit_hide is True:
+            return
+
+        incoming_chat_id: int = event.chat_id
+        incoming_message: EventMessage = event.message
+        incoming_message_link: str = self.event_message_link(event)
+
+        await self._processor.edit_message(
+            chat_id=incoming_chat_id,
+            message=incoming_message,
+            message_link=incoming_message_link,
+        )
+
+    async def on_deleted_message(
+        self: "EventHandlers", event: events.MessageDeleted.Event
+    ) -> None:
+        """MessageDeleted event handler"""
+
+        incoming_chat_id: int = event.chat_id
+        deleted_ids: List[int] = event.deleted_ids
+
+        await self._processor.delete_message(
+            chat_id=incoming_chat_id, message_ids=deleted_ids
+        )
+
+
+class Mirroring:
     def __init__(
-        self: "MirrorTelegramClient",
+        self: "Mirroring",
         chat_mapping: Dict[int, Dict[int, DirectionConfig]],
         database: Database,
+        receiver: TelegramClient,
+        sender: TelegramClient,
         logger: Union[str, logging.Logger] = None,
     ) -> None:
         """Configure channels mirroring
@@ -372,35 +445,41 @@ class Mirroring(EventHandlers):
         Args:
             chat_mapping (`Dict[int, Dict[int, DirectionConfig]]`): Chats mappings
             database (`Database`): Message IDs storage
+            receiver (`TelegramClient`): Message receiver client
+            sender (`TelegramClient`): Message sender client, can be same as `receiver`
             logger (`str` | `logging.Logger`, optional): Logger. Defaults to None.
         """
         self._chat_mapping = chat_mapping
         self._database = database
+        self._receiver = receiver
+        self._sender = sender
 
-        source_chats = list(chat_mapping.keys())
-        self.add_event_handler(
-            self.on_new_message, events.NewMessage(chats=source_chats)
-        )
         # Increase album hack delay
         events.album._HACK_DELAY = 1.01
-        self.add_event_handler(self.on_album, events.Album(chats=source_chats))
-        self.add_event_handler(
-            self.on_edit_message, events.MessageEdited(chats=source_chats)
-        )
-        self.add_event_handler(
-            self.on_deleted_message, events.MessageDeleted(chats=source_chats)
-        )
 
-        if isinstance(logger, str):
-            logger = logging.getLogger(logger)
-        elif not isinstance(logger, logging.Logger):
-            logger = logging.getLogger(__name__)
+        self._handlers = EventHandlers(
+            client=receiver,
+            chats=list(chat_mapping.keys()),
+            processor=EventProcessor(
+                chat_mapping=chat_mapping,
+                database=database,
+                client=sender,
+                logger=logger,
+            ),
+        )
 
         self._logger = logger
 
-    def printable_config(self: "MirrorTelegramClient") -> str:
-        """Get printable mirror config"""
+    async def run(self: "Mirroring") -> None:
+        self._logger.info(f"Channels mirroring config:\n{self.stringify_config()}")
 
+        if self._sender != self._receiver:
+            raise RuntimeError("Different clients are not supported now")
+
+        await self.__connect_client(self._sender)
+
+    def stringify_config(self: "Mirroring") -> str:
+        """Stringify mirror config"""
         mirror_mapping = "\n".join(
             [
                 f'{f} -> {", ".join(map(lambda x: f"{x} [{to[x]}]", to))}'
@@ -413,43 +492,21 @@ class Mirroring(EventHandlers):
             f"Using database: { self._database }\n"
         )
 
-
-class MirrorTelegramClient(TelegramClient, Mirroring):
-    def __init__(
-        self: "MirrorTelegramClient",
-        session_string: str = None,
-        api_id: str = None,
-        api_hash: str = None,
-        *args,
-        **kwargs,
-    ):
-        TelegramClient.__init__(self, StringSession(session_string), api_id, api_hash)
-        Mirroring.__init__(self, *args, **kwargs)
-        # Set up default parse mode as markdown
-        self._parse_mode = markdown
-
-    @TelegramClient.parse_mode.setter
-    def parse_mode(self: "TelegramClient", mode: str):
-        raise NotImplementedError
-
-    async def run(self: "MirrorTelegramClient") -> None:
-        """Start channels mirroring"""
+    async def __connect_client(self: "Mirroring", client: TelegramClient) -> None:
         try:
-            await self.start()
-            if await self.is_user_authorized():
-                me = await self.get_me()
-                self._logger.info(
-                    f"Logged in as {utils.get_display_name(me)} ({me.phone})"
-                )
-                self._logger.info(
-                    f"Channel mirroring has started with config:\n{self.printable_config()}"
-                )
-                await self.run_until_disconnected()
-            else:
+            if not client.is_connected():
+                await client.connect()
+
+            me = await client.get_me()
+            if me is None:
                 raise RuntimeError(
                     "There is no authorization for the user, "
                     "try restart or get a new session key (run login.py)"
                 )
+
+            self._logger.info(f"Logged in as {utils.get_display_name(me)} ({me.phone})")
+
+            await client.run_until_disconnected()
         except (errors.UserDeactivatedBanError, errors.UserDeactivatedError):
             self._logger.critical(
                 "Account banned/deactivated by Telegram. See https://github.com/lonamiwebs/telethon/issues/824"
@@ -463,4 +520,51 @@ class MirrorTelegramClient(TelegramClient, Mirroring):
                 "The user's session has expired, try to get a new session key (run login.py)"
             )
         finally:
-            await self.disconnect()
+            await client.disconnect()
+
+
+class Telemirror:
+    def __init__(
+        self: "Telemirror",
+        api_id: str,
+        api_hash: str,
+        session_string: str,
+        chat_mapping: Dict[int, Dict[int, DirectionConfig]],
+        database: Database,
+        logger: Union[str, logging.Logger] = None,
+    ):
+        """Telemirror
+
+        Args:
+            api_id (`str`): Telegram API id
+            api_hash (`str`): Telegram API hash
+            session_string (`str`): Telegram (telethon) session string
+            chat_mapping (`Dict[int, Dict[int, DirectionConfig]]`): Chats mappings
+            database (`Database`): Message IDs storage
+            logger (`str` | `logging.Logger`, optional): Logger. Defaults to None.
+        """
+        # Preparation for splitting receiver and sender
+        recv_client = send_client = TelegramClient(
+            StringSession(session_string), api_id, api_hash
+        )
+        # Set up default parse mode as markdown
+        recv_client.parse_mode = send_client.parse_mode = "markdown"
+
+        if isinstance(logger, str):
+            logger = logging.getLogger(logger)
+        elif not isinstance(logger, logging.Logger):
+            logger = logging.getLogger(__name__)
+
+        self._logger = logger
+
+        self._mirroring = Mirroring(
+            chat_mapping=chat_mapping,
+            database=database,
+            receiver=recv_client,
+            sender=send_client,
+            logger=logger,
+        )
+
+    async def run(self: "Telemirror") -> None:
+        """Start channels mirroring"""
+        await self._mirroring.run()

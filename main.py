@@ -1,22 +1,13 @@
 import logging
 
-from aiohttp import web
-
-from config import (
-    API_HASH,
-    API_ID,
-    CHAT_MAPPING,
-    DB_URL,
-    LOG_LEVEL,
-    SESSION_STRING,
-    USE_MEMORY_DB,
-)
-from telemirror.mirroring import MirrorTelegramClient
-from telemirror.storage import Database, InMemoryDatabase, PostgresDatabase
+from telemirror.mirroring import Telemirror
+from telemirror.storage import InMemoryDatabase, PostgresDatabase
 
 
-async def serve_health_endpoint(host: str, port: int) -> None:
-    async def health(request):
+async def serve_health_endpoint(host: str = "0.0.0.0", port: int = 8000) -> None:
+    from aiohttp import web
+
+    async def health(_):
         return web.Response(text="OK")
 
     app = web.Application()
@@ -26,19 +17,6 @@ async def serve_health_endpoint(host: str, port: int) -> None:
     await runner.setup()
     site = web.TCPSite(runner, host, port)
     await site.start()
-
-
-async def init_telemirror(logger: logging.Logger, database: Database):
-    await serve_health_endpoint(host="0.0.0.0", port=8000)
-
-    await MirrorTelegramClient(
-        SESSION_STRING,
-        api_id=API_ID,
-        api_hash=API_HASH,
-        chat_mapping=CHAT_MAPPING,
-        database=await database,
-        logger=logger,
-    ).run()
 
 
 def configure_logging(logger_name: str, log_level: str) -> logging.Logger:
@@ -61,21 +39,62 @@ def configure_logging(logger_name: str, log_level: str) -> logging.Logger:
     return logger
 
 
+async def run_telemirror(
+    use_memory_db: bool,
+    db_uri: str,
+    api_id: str,
+    api_hash: str,
+    session_string: str,
+    chat_mapping: dict,
+    logger: logging.Logger,
+):
+    await serve_health_endpoint()
+
+    if use_memory_db:
+        database = InMemoryDatabase()
+    else:
+        database = await PostgresDatabase(connection_string=db_uri)
+
+    telemirror = Telemirror(
+        api_id=api_id,
+        api_hash=api_hash,
+        session_string=session_string,
+        chat_mapping=chat_mapping,
+        database=database,
+        logger=logger,
+    )
+    await telemirror.run()
+
+
 def main():
     import asyncio
     import sys
 
-    logger = configure_logging("telemirror", LOG_LEVEL)
+    from config import (
+        API_HASH,
+        API_ID,
+        CHAT_MAPPING,
+        DB_URL,
+        LOG_LEVEL,
+        SESSION_STRING,
+        USE_MEMORY_DB,
+    )
 
-    if USE_MEMORY_DB:
-        database = InMemoryDatabase()
-    else:
-        database = PostgresDatabase(connection_string=DB_URL)
-        if sys.platform == "win32":
-            # required by psycopg async pool
-            asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+    if USE_MEMORY_DB is False and sys.platform == "win32":
+        # required by psycopg async pool on windows platform
+        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
-    asyncio.run(init_telemirror(logger, database))
+    asyncio.run(
+        run_telemirror(
+            use_memory_db=USE_MEMORY_DB,
+            db_uri=DB_URL,
+            api_id=API_ID,
+            api_hash=API_HASH,
+            session_string=SESSION_STRING,
+            chat_mapping=CHAT_MAPPING,
+            logger=configure_logging("telemirror", LOG_LEVEL),
+        )
+    )
 
 
 if __name__ == "__main__":
