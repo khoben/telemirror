@@ -1,4 +1,5 @@
 import logging
+import asyncio
 from typing import Dict, List, Union
 
 from telethon import TelegramClient, errors, events, utils
@@ -495,7 +496,17 @@ class Mirroring:
     async def __connect_client(self: "Mirroring", client: TelegramClient) -> None:
         try:
             if not client.is_connected():
-                await client.connect()
+                try:
+                    # Avoid `client.connect` hang forever:
+                    # https://github.com/LonamiWebs/Telethon/issues/1536
+                    # https://github.com/LonamiWebs/Telethon/issues/4119
+                    
+                    await asyncio.wait_for(client.connect(), timeout=client._timeout)
+                except asyncio.TimeoutError:
+                    raise RuntimeError(
+                        "Timeout error while connecting to Telegram server, "
+                        "try restart or get a new session key (run login.py)"
+                    )
 
             me = await client.get_me()
             if me is None:
