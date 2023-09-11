@@ -1,0 +1,30 @@
+# (Optional) Global filters, will be applied in order
+filters:
+  - ForwardFormatFilter: # Filter name under telemirror/messagefilters.py
+      format: ""           # Filters arguments
+  - EmptyMessageFilter
+  - UrlMessageFilter:
+      blacklist: !!set
+        ? t.me
+  - SkipUrlFilter:
+      skip_mention: false
+
+# (Optional) Global settings
+disable_edit: true
+disable_delete: true
+
+# (Required) Mirror directions
+directions:
+  - from: [-1001, -1002, -1003]
+    to: [-100203]
+
+  - from: [-100226]
+    to: [-1006, -1008]
+    # Overwrite global settings
+    disable_edit: false
+    disable_delete: false
+    # Overwrite global filters
+    filters:
+      - UrlMessageFilter:
+          blacklist: !!set
+            ? t.me
