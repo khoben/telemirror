@@ -80,9 +80,13 @@ def main():
         USE_MEMORY_DB,
     )
 
-    if USE_MEMORY_DB is False and sys.platform == "win32":
-        # required by psycopg async pool on windows platform
-        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+    if sys.platform == "win32":
+        if USE_MEMORY_DB is False:
+            # required by psycopg async pool on windows platform
+            asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+    else:
+        import uvloop
+        uvloop.install()
 
     asyncio.run(
         run_telemirror(

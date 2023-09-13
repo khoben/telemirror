@@ -4,3 +4,4 @@ psycopg[binary,pool]==3.1.10
 python-decouple==3.8
 PyYAML==6.0.1
 aiohttp==3.8.5
+uvloop==0.17.0; platform_system != "Windows"
