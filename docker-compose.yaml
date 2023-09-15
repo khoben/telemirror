@@ -21,6 +21,8 @@ services:
       DATABASE_URL: "postgres://${DB_USER}:${DB_PASS}@postgres/${DB_NAME}"
     env_file:
       - .env
+    volumes:
+      - ./mirror.config.yml:/app/mirror.config.yml:ro
     ports:
       - "8000:8000"
     depends_on:
