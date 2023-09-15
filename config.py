@@ -62,6 +62,10 @@ CHAT_MAPPING: Dict[int, Dict[int, DirectionConfig]] = {}
 
 YAML_CONFIG_FILE = "./.configs/mirror.config.yml"
 
+# Check for deprecated config location
+if os.path.exists("./mirror.config.yml"):
+    raise Exception("Please move `mirror.config.yml` to `.configs` directory")
+
 # Load mirror config from config.yml
 # otherwise from .env or environment
 if os.path.exists(YAML_CONFIG_FILE):
