@@ -22,7 +22,7 @@ services:
     env_file:
       - .env
     volumes:
-      - ./mirror.config.yml:/app/mirror.config.yml:ro
+      - ./.configs:/app/.configs:ro
     ports:
       - "8000:8000"
     depends_on:

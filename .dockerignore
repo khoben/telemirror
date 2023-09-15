@@ -88,5 +88,5 @@ venv/
 # Vim swap files
 **/*.swp
 
-# Telemirror config
-mirror.config.yml
+# Telemirror configs folder
+.configs

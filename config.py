@@ -60,7 +60,7 @@ class DirectionConfig:
 # source and target chats mapping
 CHAT_MAPPING: Dict[int, Dict[int, DirectionConfig]] = {}
 
-YAML_CONFIG_FILE = "./mirror.config.yml"
+YAML_CONFIG_FILE = "./.configs/mirror.config.yml"
 
 # Load mirror config from config.yml
 # otherwise from .env or environment
