@@ -80,7 +80,15 @@ class CopyMessage:
         return copy
 
 
-class WhitespacedWordBound:
-    """Whitespaced word's bounds regex"""
+class WordBoundaryRegex:
+    """
+    Word boundary regex
 
-    BOUNDARY_REGEX = r"(?:(?<![^\s])(?=[^\s])|(?<=[^\s])(?![^\s]))"
+    Since \\b means (?:(?<!\w)(?=\w)|(?<=\w)(?!\w)),
+    that doesn't match special characters such as '@' or '.',
+    specify spaces and punctuation as word boundaries.
+    """
+
+    BOUNDARY_REGEX = (
+        r"(?:(?<![^\s,.!?\\-])(?=[^\s,.!?\\-])|(?<=[^\s,.!?\\-])(?![^\s,.!?\\-]))"
+    )

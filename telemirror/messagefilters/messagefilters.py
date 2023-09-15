@@ -12,7 +12,7 @@ from .mixins import (
     CopyMessage,
     MappedChannelName,
     MessageLink,
-    WhitespacedWordBound,
+    WordBoundaryRegex,
 )
 
 
@@ -303,7 +303,7 @@ class MappedNameForwardFormat(MappedChannelName, ForwardFormatFilter):
         ForwardFormatFilter.__init__(self, format)
 
 
-class KeywordReplaceFilter(WhitespacedWordBound, CopyMessage, MessageFilter):
+class KeywordReplaceFilter(WordBoundaryRegex, CopyMessage, MessageFilter):
     """Filter that maps keywords
     Args:
         keywords (dict[str, str]): Keywords map
@@ -358,7 +358,7 @@ class KeywordReplaceFilter(WhitespacedWordBound, CopyMessage, MessageFilter):
         return True, filtered_message
 
 
-class SkipWithKeywordsFilter(WhitespacedWordBound, MessageFilter):
+class SkipWithKeywordsFilter(WordBoundaryRegex, MessageFilter):
     """Skips message if some keyword found"""
 
     def __init__(self, keywords: set[str]) -> None:
