@@ -13,16 +13,18 @@
 
     ![Telegram API Credentials](/README.md-images/telegramapp.png)
 
-3. Setup Postgres database or use `InMemoryDatabase` with `USE_MEMORY_DB=true` parameter in `.env` file
+3. Get **SESSION_STRING**
 
-4. Fill `.env`/`mirror.config.yml` config files with your data
+    **SESSION_STRING** can be obtained by running [login.py](login.py) with provided **API_ID** and **API_HASH** environment variables. ❗ **DON'T USE** your own account.
+
+4. Setup Postgres database or use `InMemoryDatabase` with `USE_MEMORY_DB=true` parameter in `.env` file
+
+5. Fill `.env` with your data
 
     [.env-example](.env-example) contains the minimum environment configuration to run with an in-memory database.
 
-    **SESSION_STRING** can be obtained by running [login.py](login.py) with provided **API_ID** and **API_HASH** environment variables. **DON'T USE** your own account.
-    
     <details>
-    <summary><b>.env overview</b></summary>
+    <summary><b>.env</b> overview</b></summary>
 
     ```bash
     ###########################
@@ -46,36 +48,17 @@
     DB_PASS=test
     # Logging level (debug, info, warning, error or critical). Defaults to info
     LOG_LEVEL=info
-
-    ###############################################
-    #    Setup directions and filters from env    #
-    ###############################################
-
-    # Mapping between source and target channels/chats
-    # Channel/chat id can be fetched by using @messageinformationsbot telegram bot
-    # Channel id should be prefixed with -100
-    # [id1, id2, id3:id4] means send messages from id1, id2, id3 to id4
-    # id5:id6 means send messages from id5 to id6
-    # [id1, id2, id3:id4];[id5:id6] semicolon means AND
-    CHAT_MAPPING=[-100999999,-100999999,-100999999:-1009999999];
-    # Remove URLs from incoming messages (true or false). Defaults to false
-    REMOVE_URLS=false
-    # Comma-separated list of URLs to remove (reddit.com,youtube.com)
-    REMOVE_URLS_LIST=google.com,twitter.com
-    # Comma-separated list of URLs to exclude from removal (google.com,twitter.com).
-    # Will be applied after the REMOVE_URLS_LIST
-    REMOVE_URLS_WL=youtube.com,youtu.be,vk.com,twitch.tv,instagram.com
-    # Disable mirror message deleting (true or false). Defaults to false
-    DISABLE_DELETE=false
-    # Disable mirror message editing (true or false). Defaults to false
-    DISABLE_EDIT=false
     ```
     </details>
 
-    To setup **directions and filters** section `mirror.config.yml` can be used:
+6. Setup mirror forwarding config:
+
+    [mirror.config.yml-example](./.configs/mirror.config.yml-example) contains an example config.
+
+    `./.configs/mirror.config.yml` or `.env` (limited) can be used to configure mirroring:
 
     <details>
-    <summary><b>mirror.config.yml</b> overview</summary>
+    <summary><b>./.configs/mirror.config.yml</b> mirroring config overview</summary>
 
     ```yaml
     # (Optional) Global filters, will be applied in order
@@ -111,13 +94,42 @@
     ```
     </details>
 
+    <details>
+    <summary><b>.env</b> mirroring config overview</summary>
+
+    ```bash
+    ###############################################
+    #    Setup directions and filters from env    #
+    ###############################################
+
+    # Mapping between source and target channels/chats
+    # Channel/chat id can be fetched by using @messageinformationsbot telegram bot
+    # Channel id should be prefixed with -100
+    # [id1, id2, id3:id4] means send messages from id1, id2, id3 to id4
+    # id5:id6 means send messages from id5 to id6
+    # [id1, id2, id3:id4];[id5:id6] semicolon means AND
+    CHAT_MAPPING=[-100999999,-100999999,-100999999:-1009999999];
+    # Remove URLs from incoming messages (true or false). Defaults to false
+    REMOVE_URLS=false
+    # Comma-separated list of URLs to remove (reddit.com,youtube.com)
+    REMOVE_URLS_LIST=google.com,twitter.com
+    # Comma-separated list of URLs to exclude from removal (google.com,twitter.com).
+    # Will be applied after the REMOVE_URLS_LIST
+    REMOVE_URLS_WL=youtube.com,youtu.be,vk.com,twitch.tv,instagram.com
+    # Disable mirror message deleting (true or false). Defaults to false
+    DISABLE_DELETE=false
+    # Disable mirror message editing (true or false). Defaults to false
+    DISABLE_EDIT=false
+    ```
+    </details>
+
     ❓ Channels ID can be fetched by using [Telegram bot](https://t.me/messageinformationsbot).
 
     ❗ Note: never push your `.env`/`.yml` files with real crendential to a public repo. Use a separate branch (eg, `heroku-branch`) with `.env`/`.yml` files to push to git-based deployment system like Heroku.
 
-5. Make sure the account has joined source and target channels
+7. Make sure the account has joined source and target channels
 
-6. **Be careful** with forwards from channels with [`RESTRICTED SAVING CONTENT`](https://telegram.org/blog/protected-content-delete-by-date-and-more). It may lead to an account ban
+8. **Be careful** with forwards from channels with [`RESTRICTED SAVING CONTENT`](https://telegram.org/blog/protected-content-delete-by-date-and-more). It may lead to an account ban
 
 ## Deploy
 <details>
