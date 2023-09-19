@@ -9,6 +9,7 @@ from telethon.tl import types
 from config import DirectionConfig
 from telemirror.hints import EventAlbumMessage, EventLike, EventMessage
 from telemirror.storage import Database, MirrorMessage
+from telemirror import patch_telethon
 
 
 class EventProcessor:
@@ -455,9 +456,6 @@ class Mirroring:
         self._receiver = receiver
         self._sender = sender
 
-        # Increase album hack delay
-        events.album._HACK_DELAY = 1.01
-
         self._handlers = EventHandlers(
             client=receiver,
             chats=list(chat_mapping.keys()),
@@ -500,7 +498,7 @@ class Mirroring:
                     # Avoid `client.connect` hang forever:
                     # https://github.com/LonamiWebs/Telethon/issues/1536
                     # https://github.com/LonamiWebs/Telethon/issues/4119
-                    
+
                     await asyncio.wait_for(client.connect(), timeout=client._timeout)
                 except asyncio.TimeoutError:
                     raise RuntimeError(
@@ -554,6 +552,8 @@ class Telemirror:
             database (`Database`): Message IDs storage
             logger (`str` | `logging.Logger`, optional): Logger. Defaults to None.
         """
+        patch_telethon(album_delay=1.01)
+
         # Preparation for splitting receiver and sender
         recv_client = send_client = TelegramClient(
             StringSession(session_string), api_id, api_hash
