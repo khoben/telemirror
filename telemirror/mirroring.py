@@ -1,5 +1,5 @@
-import logging
 import asyncio
+import logging
 from typing import Dict, List, Union
 
 from telethon import TelegramClient, errors, events, utils
@@ -7,12 +7,13 @@ from telethon.sessions import StringSession
 from telethon.tl import types
 
 from config import DirectionConfig
-from telemirror.hints import EventAlbumMessage, EventLike, EventMessage
-from telemirror.storage import Database, MirrorMessage
 from telemirror import patch_telethon
+from telemirror.hints import EventAlbumMessage, EventLike, EventMessage
+from telemirror.mixins import CopyEventMessage
+from telemirror.storage import Database, MirrorMessage
 
 
-class EventProcessor:
+class EventProcessor(CopyEventMessage):
     def __init__(
         self: "EventProcessor",
         chat_mapping: Dict[int, Dict[int, DirectionConfig]],
@@ -38,12 +39,11 @@ class EventProcessor:
         from functools import wraps
 
         @wraps(fn)
-        async def wrapper(self, *args, **kw):
+        async def wrapper(self: "EventProcessor", *args, **kw):
             try:
                 return await fn(self, *args, **kw)
             except Exception as e:
-                if isinstance(self, EventProcessor):
-                    self._logger.error(e, exc_info=True)
+                self._logger.error(e, exc_info=True)
 
         return wrapper
 
@@ -91,7 +91,7 @@ class EventProcessor:
 
             filtered_message: EventMessage
             proceed, filtered_message = await config.filters.process(
-                message, events.NewMessage.Event
+                self.copy_message(message), events.NewMessage.Event
             )
 
             if proceed is False:
@@ -167,7 +167,7 @@ class EventProcessor:
 
             filtered_album: EventAlbumMessage
             proceed, filtered_album = await config.filters.process(
-                album, events.Album.Event
+                self.copy_album(album), events.Album.Event
             )
 
             if proceed is False:
@@ -246,7 +246,7 @@ class EventProcessor:
                 continue
 
             proceed, filtered_message = await config.filters.process(
-                message, events.MessageEdited.Event
+                self.copy_message(message), events.MessageEdited.Event
             )
             if proceed is False:
                 self._logger.info(
@@ -518,15 +518,18 @@ class Mirroring:
             await client.run_until_disconnected()
         except (errors.UserDeactivatedBanError, errors.UserDeactivatedError):
             self._logger.critical(
-                "Account banned/deactivated by Telegram. See https://github.com/lonamiwebs/telethon/issues/824"
+                "Account banned/deactivated by Telegram. "
+                "See https://github.com/lonamiwebs/telethon/issues/824"
             )
         except errors.PhoneNumberBannedError:
             self._logger.critical(
-                "Phone number banned/deactivated by Telegram. See https://github.com/lonamiwebs/telethon/issues/824"
+                "Phone number banned/deactivated by Telegram. "
+                "See https://github.com/lonamiwebs/telethon/issues/824"
             )
         except (errors.SessionExpiredError, errors.SessionRevokedError):
             self._logger.critical(
-                "The user's session has expired, try to get a new session key (run login.py)"
+                "The user's session has expired, "
+                "try to get a new session key (run login.py)"
             )
         finally:
             await client.disconnect()

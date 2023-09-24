@@ -1,8 +1,8 @@
-from typing import Optional
+from typing import List, Optional
 
 from telethon import types, utils
 
-from ..hints import EventMessage
+from .hints import EventAlbumMessage, EventMessage
 
 
 class MappedChannelName:
@@ -32,17 +32,21 @@ class MessageLink:
         return None
 
 
-class CopyMessage:
+class CopyEventMessage:
     def copy_message(self, message: EventMessage) -> EventMessage:
-        """Copy **message** via constructor
+        """Copy message via constructor:
+        `message`, `entities` and `media` properties
+        shouldn't be affected by changes from original message
 
         Args:
             message (`EventMessage`): Source message
 
         Returns:
-            `EventMessage`: Copy of message
+            `EventMessage`: Copied message
         """
-        copy = EventMessage(
+        from copy import deepcopy
+
+        cloned = EventMessage(
             id=message.id,
             peer_id=message.peer_id,
             date=message.date,
@@ -57,9 +61,9 @@ class CopyMessage:
             message=message.message,
             fwd_from=message.fwd_from,
             via_bot_id=message.via_bot_id,
-            media=message.media,
+            media=deepcopy(message.media),
             reply_markup=message.reply_markup,
-            entities=message.entities,
+            entities=deepcopy(message.entities),
             views=message.views,
             edit_date=message.edit_date,
             post_author=message.post_author,
@@ -75,9 +79,22 @@ class CopyMessage:
             replies=message.replies,
             action=message.action,
         )
-        copy._chat = message._chat
-        copy._client = message._client
-        return copy
+        cloned._chat = message._chat
+        cloned._client = message._client
+        return cloned
+
+    def copy_album(self, album: EventAlbumMessage) -> EventAlbumMessage:
+        """Copy album via constructor:
+        `message`, `entities` and `media` properties
+        shouldn't be affected by changes from original album
+
+        Args:
+            album (`EventAlbumMessage`): Source album
+
+        Returns:
+            `EventAlbumMessage`: Copied album
+        """
+        return [self.copy_message(message) for message in album]
 
 
 class WordBoundaryRegex:
@@ -92,3 +109,48 @@ class WordBoundaryRegex:
     BOUNDARY_REGEX = (
         r"(?:(?<![^\s,.!?\\-])(?=[^\s,.!?\\-])|(?<=[^\s,.!?\\-])(?![^\s,.!?\\-]))"
     )
+
+
+class UpdateEntitiesParams:
+    def update_entities_params(
+        self,
+        entities: List[types.TypeMessageEntity],
+        start: int,
+        end: int,
+        diff: int,
+    ) -> None:
+        """In-place iterative update entities `offset` and `length`:
+
+        `[ ] ()`: Update `offset` += `diff`
+
+        `( [ ] )`: Update `length` += `diff`
+
+        `( [ ) ]`: Update `length` to `( )[ ]`
+
+        `[ ( ] )`: Update `offset` to `[ ]( )`
+
+        `[ ( ) ]`: Update `offset` and `length` to `[( )]`
+        """
+        if not entities or diff == 0:
+            return
+
+        for entity in entities:
+            if entity.offset >= end:
+                # After
+                entity.offset += diff
+            elif entity.offset <= start and entity.offset + entity.length >= end:
+                # Before & After
+                entity.length += diff
+            elif entity.offset < start and start < entity.offset + entity.length < end:
+                # Before with partial overlap
+                entity.length -= (entity.offset + entity.length) - start
+            elif start < entity.offset < end and entity.offset + entity.length > end:
+                # After with partial overlap
+                entity.offset = end + diff
+            elif (
+                start < entity.offset < end
+                and start < entity.offset + entity.length < end
+            ):
+                # Fully inside: resize to match entity
+                entity.offset = start
+                entity.length = (end - start) + diff

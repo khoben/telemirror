@@ -36,8 +36,8 @@ class UrlMatcher:
                 URLs that will be NOT matched.
                 Will be applied after the `blacklist`. Defaults to set().
         """
-        self._blacklist = blacklist
-        self._whitelist = whitelist
+        self._blacklist = {v.lower() for v in blacklist}
+        self._whitelist = {v.lower() for v in whitelist}
 
     def match(self, url: str) -> bool:
         """Checks if URL matched
@@ -57,8 +57,7 @@ class UrlMatcher:
         host = host.lower()
 
         if not path:
-            path = ""
-            full_url = path
+            full_url = host
         else:
             # ///path -> /path
             path = f"/{path.lstrip('/').lower()}"
@@ -82,7 +81,7 @@ class UrlMatcher:
         if scheme_pos == -1:
             # prepend default http scheme
             url = f"http://{url}"
-        
+
         url_parts = self.RE.match(url)
         if url_parts is None:
             return None, None

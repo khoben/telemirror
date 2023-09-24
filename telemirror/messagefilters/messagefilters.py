@@ -2,18 +2,17 @@ import re
 from typing import List, Set, Tuple, Type, Union
 
 from telethon import events, types, utils
-from telethon.extensions import markdown as md_parser
 
 from ..hints import EventAlbumMessage, EventEntity, EventLike, EventMessage
 from ..misc.urlmatcher import UrlMatcher
-from .base import MessageFilter
-from .mixins import (
+from ..mixins import (
     ChannelName,
-    CopyMessage,
     MappedChannelName,
     MessageLink,
+    UpdateEntitiesParams,
     WordBoundaryRegex,
 )
+from .base import MessageFilter
 
 
 class EmptyMessageFilter(MessageFilter):
@@ -58,25 +57,24 @@ class SkipUrlFilter(MessageFilter):
     async def _process_message(
         self, message: EventMessage, event_type: Type[EventLike]
     ) -> Tuple[bool, EventMessage]:
-        if message.entities:
-            for e in message.entities:
-                if isinstance(
-                    e, (types.MessageEntityUrl, types.MessageEntityTextUrl)
-                ) or (
-                    isinstance(
-                        e, (types.MessageEntityMention, types.MessageEntityMentionName)
-                    )
-                    and self._skip_mention
-                ):
-                    return False, message
-
         if isinstance(message.media, types.MessageMediaWebPage):
             return False, message
+
+        for entity in message.entities or []:
+            if isinstance(
+                entity, (types.MessageEntityUrl, types.MessageEntityTextUrl)
+            ) or (
+                isinstance(
+                    entity, (types.MessageEntityMention, types.MessageEntityMentionName)
+                )
+                and self._skip_mention
+            ):
+                return False, message
 
         return True, message
 
 
-class UrlMessageFilter(CopyMessage, MessageFilter):
+class UrlMessageFilter(UpdateEntitiesParams, MessageFilter):
     """URLs message filter
 
     Args:
@@ -124,53 +122,67 @@ class UrlMessageFilter(CopyMessage, MessageFilter):
     async def _process_message(
         self, message: EventMessage, event_type: Type[EventLike]
     ) -> Tuple[bool, EventMessage]:
-        filtered_message = self.copy_message(message)
-        # Filter message entities
-        if filtered_message.entities:
-            filtered_entities: List[types.TypeMessageEntity] = []
-            offset_error = 0
-            for entity, entity_text in filtered_message.get_entities_text():
-                entity.offset += offset_error
+        filtered_text = utils.add_surrogate(message.message)
+        filtered_entities: List[types.TypeMessageEntity] = []
 
-                # Replace URLs and mentions within message text
-                if (
-                    (
-                        isinstance(entity, types.MessageEntityUrl)
-                        and self._url_matcher.match(entity_text)
-                    )
-                    or (
-                        isinstance(entity, types.MessageEntityMention)
-                        and self._match_mention(entity_text)
-                    )
-                    or (
-                        isinstance(entity, types.MessageEntityTextUrl)
-                        and self._url_matcher.match(entity.url)
-                    )
-                ):
-                    filtered_message.message = filtered_message.message.replace(
-                        entity_text, self._placeholder, 1
-                    )
-                    offset_error += len(self._placeholder) - entity.length
-                    continue
+        for entity in message.entities or []:
+            entity_text = utils.del_surrogate(
+                filtered_text[entity.offset : entity.offset + entity.length]
+            )
+            drop_entity = False
+            update_pos = False
 
-                # Filter formatting entities
-                if not (
-                    isinstance(entity, types.MessageEntityMentionName)
-                    and self._filter_by_id_mention
-                ):
-                    filtered_entities.append(entity)
+            if (
+                (
+                    isinstance(entity, types.MessageEntityTextUrl)
+                    and self._url_matcher.match(entity.url)
+                )
+                or (
+                    isinstance(entity, types.MessageEntityUrl)
+                    and self._url_matcher.match(entity_text)
+                )
+                or (
+                    isinstance(entity, types.MessageEntityMention)
+                    and self._match_mention(entity_text)
+                )
+            ):
+                filtered_text = (
+                    filtered_text[: entity.offset]
+                    + self._placeholder
+                    + filtered_text[entity.offset + entity.length :]
+                )
+                entity_len_diff = len(self._placeholder) - entity.length
+                update_pos = True
+                drop_entity = True
+            elif (
+                isinstance(entity, types.MessageEntityMentionName)
+                and self._filter_by_id_mention
+            ):
+                drop_entity = True
 
-            filtered_message.entities = filtered_entities
+            if update_pos is True:
+                self.update_entities_params(
+                    message.entities,
+                    entity.offset,
+                    entity.offset + entity.length,
+                    entity_len_diff,
+                )
+
+            if drop_entity is False:
+                filtered_entities.append(entity)
 
         # Filter link preview
         if (
-            isinstance(filtered_message.media, types.MessageMediaWebPage)
-            and isinstance(filtered_message.media.webpage, types.WebPage)
-            and self._url_matcher.match(filtered_message.media.webpage.url)
+            isinstance(message.media, types.MessageMediaWebPage)
+            and isinstance(message.media.webpage, types.WebPage)
+            and self._url_matcher.match(message.media.webpage.url)
         ):
-            filtered_message.media = None
+            message.media = None
 
-        return True, filtered_message
+        message.entities = filtered_entities
+        message.message = utils.del_surrogate(filtered_text)
+
+        return True, message
 
     def _match_mention(self, mention: str) -> bool:
         if self._filter_mention is not None:
@@ -182,7 +194,7 @@ class UrlMessageFilter(CopyMessage, MessageFilter):
         return True
 
 
-class ForwardFormatFilter(ChannelName, MessageLink, CopyMessage, MessageFilter):
+class ForwardFormatFilter(ChannelName, MessageLink, MessageFilter):
     """Filter that adds a forwarding formatting (markdown supported):
 
     Example:
@@ -205,72 +217,72 @@ class ForwardFormatFilter(ChannelName, MessageLink, CopyMessage, MessageFilter):
 
     def __init__(self, format: str = DEFAULT_FORMAT) -> None:
         self._format = format
+
+        from telethon.extensions import markdown as md_parser
+
         self._parser = md_parser
 
     async def _process_message(
         self, message: EventMessage, event_type: Type[EventLike]
     ) -> Tuple[bool, EventMessage]:
-        # Skip format editing for albums
-        if message.grouped_id and event_type is events.MessageEdited.Event:
+        # Skip format editing for empty album's items
+        if (
+            event_type is events.MessageEdited.Event
+            and message.grouped_id
+            and not message.message
+        ):
             return True, message
 
         message_link = self.message_link(message)
         channel_name = self.channel_name(message)
 
-        filtered_message = self.copy_message(message)
+        if not message_link or not channel_name:
+            return True, message
 
-        if channel_name and message_link:
-            pre_formatted_message = self._format.format(
-                channel_name=channel_name,
-                message_link=message_link,
-                message_text=self.MESSAGE_PLACEHOLDER,
-            )
-            pre_formatted_text, pre_formatted_entities = self._parser.parse(
-                pre_formatted_message
-            )
+        pre_formatted_message = self._format.format(
+            channel_name=channel_name,
+            message_link=message_link,
+            message_text=self.MESSAGE_PLACEHOLDER,
+        )
+        pre_formatted_text, pre_formatted_entities = self._parser.parse(
+            pre_formatted_message
+        )
 
-            message_offset = pre_formatted_text.find(self.MESSAGE_PLACEHOLDER)
+        message_offset = pre_formatted_text.find(self.MESSAGE_PLACEHOLDER)
 
-            if filtered_message.entities and message_offset > 0:
-                # Move message entities to start of message placeholder
-                for e in filtered_message.entities:
-                    e.offset += message_offset
+        if message.entities and message_offset > 0:
+            # Move message entities to start of message placeholder
+            for entity in message.entities:
+                entity.offset += message_offset
 
-            if pre_formatted_entities:
-                # Fix formatting entities after message placeholder
-                message_placeholder_length_diff = len(
-                    # Telegram offsets are calculated with surrogates
-                    utils.add_surrogate(message.message)
-                ) - len(self.MESSAGE_PLACEHOLDER)
-                for e in pre_formatted_entities:
-                    if e.offset > message_offset:
-                        e.offset += message_placeholder_length_diff
+        if pre_formatted_entities:
+            # Update entities position after message placeholder
+            message_placeholder_length_diff = len(
+                # Telegram offsets are calculated with surrogates
+                utils.add_surrogate(message.message)
+            ) - len(self.MESSAGE_PLACEHOLDER)
 
-                if filtered_message.entities:
-                    filtered_message.entities.extend(pre_formatted_entities)
-                else:
-                    filtered_message.entities = pre_formatted_entities
+            for entity in pre_formatted_entities:
+                if entity.offset > message_offset:
+                    entity.offset += message_placeholder_length_diff
 
-            filtered_message.message = pre_formatted_text.format(
-                message_text=filtered_message.message
-            )
+            if message.entities:
+                message.entities.extend(pre_formatted_entities)
+            else:
+                message.entities = pre_formatted_entities
 
-        return True, filtered_message
+        message.message = pre_formatted_text.format(message_text=message.message)
+
+        return True, message
 
     async def _process_album(
         self, album: EventAlbumMessage, event_type: Type[EventLike]
     ) -> Tuple[bool, EventAlbumMessage]:
-        # process first message with non-empty text or first message
-        message_album: EventMessage = None
-        message_idx: int = 0
-        for idx, message in enumerate(album):
-            if message.message:
-                message_album = message
-                message_idx = idx
-                break
-
-        if not message_album:
-            message_album = album[0]
+        # Process first message with non-empty text or first message
+        message_idx, message_album = next(
+            ((idx, message) for idx, message in enumerate(album) if message.message),
+            (0, album[0]),
+        )
 
         proceed, album[message_idx] = await self._process_message(
             message_album, event_type
@@ -303,59 +315,61 @@ class MappedNameForwardFormat(MappedChannelName, ForwardFormatFilter):
         ForwardFormatFilter.__init__(self, format)
 
 
-class KeywordReplaceFilter(WordBoundaryRegex, CopyMessage, MessageFilter):
+class KeywordReplaceFilter(UpdateEntitiesParams, WordBoundaryRegex, MessageFilter):
     """Filter that maps keywords
     Args:
         keywords (dict[str, str]): Keywords map
     """
 
     def __init__(self, keywords: dict[str, str]) -> None:
-        self._keywords_mapping = [
-            (
-                re.compile(
-                    f"{self.BOUNDARY_REGEX}{k}{self.BOUNDARY_REGEX}",
-                    flags=re.IGNORECASE,
-                ),
-                v,
-            )
-            for k, v in keywords.items()
-        ]
+        self._regex = re.compile(
+            "|".join(
+                [f"{self.BOUNDARY_REGEX}{k}{self.BOUNDARY_REGEX}" for k in keywords]
+            ),
+            flags=re.IGNORECASE,
+        )
+        # Lower-cased keywords mapping
+        self._keywords_mapping = {k.lower(): v for k, v in keywords.items()}
 
     async def _process_message(
         self, message: EventMessage, event_type: Type[EventLike]
     ) -> Tuple[bool, EventMessage]:
-        filtered_message = self.copy_message(message)
-        unparsed_text = filtered_message.message
+        if not message.message:
+            return True, message
 
-        if filtered_message.entities:
-            entities = filtered_message.entities
-        else:
-            entities = []
+        filtered_text = utils.add_surrogate(message.message)
+        filtered_entities = message.entities or []
+        entities_offset_error = 0
 
-        if unparsed_text:
-            replace_to = ""
+        def repl(match: re.Match[str]) -> str:
+            group = match.group()
+            replacement = self._keywords_mapping.get(group.lower())
 
-            def sub_middleware(match: re.Match) -> str:
-                start_match = match.start()
-                len_match = match.end() - start_match
-                len_replace_to = len(replace_to)
-                diff = len_replace_to - len_match
+            nonlocal entities_offset_error
+            match_start, match_end = match.span()
+            diff = len(replacement) - (match_end - match_start)
+            self.update_entities_params(
+                filtered_entities,
+                match_start + entities_offset_error,
+                match_end + entities_offset_error,
+                diff,
+            )
+            entities_offset_error += diff
 
-                # after: change offset
-                for e in entities:
-                    if e.offset == start_match and e.length == len_match:
-                        e.length = len_replace_to
-                    elif e.offset > start_match:
-                        e.offset += diff
+            if group.islower():
+                return replacement.lower()
+            if group.istitle():
+                return replacement.title()
+            if group.isupper():
+                return replacement.upper()
+            return replacement
 
-                return replace_to
+        filtered_text = self._regex.sub(repl, filtered_text)
 
-            for pattern, replace_to in self._keywords_mapping:
-                unparsed_text = pattern.sub(sub_middleware, unparsed_text)
+        message.entities = filtered_entities
+        message.message = utils.del_surrogate(filtered_text)
 
-            filtered_message.message = unparsed_text
-
-        return True, filtered_message
+        return True, message
 
 
 class SkipWithKeywordsFilter(WordBoundaryRegex, MessageFilter):
@@ -372,6 +386,4 @@ class SkipWithKeywordsFilter(WordBoundaryRegex, MessageFilter):
     async def _process_message(
         self, message: EventMessage, event_type: Type[EventLike]
     ) -> Tuple[bool, EventMessage]:
-        if self._regex.search(message.message):
-            return False, message
-        return True, message
+        return self._regex.search(message.message) is None, message
