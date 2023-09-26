@@ -255,13 +255,24 @@ class EventProcessor(CopyEventMessage):
                 )
                 continue
 
+            # Prevent `MediaPrevInvalidError`: The old media cannot be edited
+            # with anything else (such as stickers or voice notes).
+            edit_media_allowed = (
+                not isinstance(filtered_message.media, types.MessageMediaDocument)
+                or not isinstance(filtered_message.media.document, types.Document)
+                or not any(
+                    isinstance(attr, types.DocumentAttributeAudio)
+                    and attr.voice is True
+                    for attr in filtered_message.media.document.attributes
+                )
+            )
             try:
                 await self._client.edit_message(
                     entity=outgoing_message.mirror_channel,
                     message=outgoing_message.mirror_id,
                     text=filtered_message.message,
                     formatting_entities=filtered_message.entities,
-                    file=filtered_message.media,
+                    file=filtered_message.media if edit_media_allowed else None,
                     link_preview=isinstance(
                         filtered_message.media, types.MessageMediaWebPage
                     ),
