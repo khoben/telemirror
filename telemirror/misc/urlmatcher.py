@@ -1,5 +1,5 @@
 import re
-from typing import Optional, Set, Tuple
+from typing import List, Optional, Set, Tuple
 
 
 class UrlMatcher:
@@ -25,6 +25,10 @@ class UrlMatcher:
 
     DIGITS = "0123456789"
 
+    SEARCH_URL_RE = re.compile(
+        r"(?:https?:\/\/)?(www\.)?[-\w@:%.\+~#=]{1,256}\.[\w]{2,4}\b([-\w@:%\+.~#?&//=]*)"
+    )
+
     def __init__(self, blacklist: Set[str] = set(), whitelist: Set[str] = set()):
         """UrlMatcher
 
@@ -39,10 +43,27 @@ class UrlMatcher:
         self._blacklist = {v.lower() for v in blacklist}
         self._whitelist = {v.lower() for v in whitelist}
 
+    def search(self, text: str) -> List[Tuple[int, int]]:
+        """Search for matched URLs within text
+
+        Args:
+            text (str): Text
+
+        Returns:
+            List[Tuple[int, int]]: Matched URLs
+        """
+        return [
+            url.span()
+            for url in self.SEARCH_URL_RE.finditer(text)
+            if self.match(url.group())
+        ]
+
     def match(self, url: str) -> bool:
         """Checks if URL matched
+
         Args:
             url (str): URL
+
         Returns:
             bool: Indicates that URL matched
         """

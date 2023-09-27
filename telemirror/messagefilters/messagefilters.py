@@ -1,5 +1,5 @@
 import re
-from typing import List, Set, Tuple, Type, Union
+from typing import Set, Tuple, Type, Union
 
 from telethon import events, types, utils
 
@@ -123,27 +123,21 @@ class UrlMessageFilter(UpdateEntitiesParams, MessageFilter):
         self, message: EventMessage, event_type: Type[EventLike]
     ) -> Tuple[bool, EventMessage]:
         filtered_text = utils.add_surrogate(message.message)
-        filtered_entities: List[types.TypeMessageEntity] = []
+        filtered_entities = list[types.TypeMessageEntity]()
 
         for entity in message.entities or []:
-            entity_text = utils.del_surrogate(
-                filtered_text[entity.offset : entity.offset + entity.length]
-            )
             drop_entity = False
             update_pos = False
 
             if (
-                (
-                    isinstance(entity, types.MessageEntityTextUrl)
-                    and self._url_matcher.match(entity.url)
+                isinstance(entity, types.MessageEntityUrl)
+                and self._url_matcher.match(
+                    filtered_text[entity.offset : entity.offset + entity.length]
                 )
-                or (
-                    isinstance(entity, types.MessageEntityUrl)
-                    and self._url_matcher.match(entity_text)
-                )
-                or (
-                    isinstance(entity, types.MessageEntityMention)
-                    and self._match_mention(entity_text)
+            ) or (
+                isinstance(entity, types.MessageEntityMention)
+                and self._match_mention(
+                    filtered_text[entity.offset : entity.offset + entity.length]
                 )
             ):
                 filtered_text = (
@@ -155,8 +149,11 @@ class UrlMessageFilter(UpdateEntitiesParams, MessageFilter):
                 update_pos = True
                 drop_entity = True
             elif (
-                isinstance(entity, types.MessageEntityMentionName)
-                and self._filter_by_id_mention
+                self._filter_by_id_mention
+                and isinstance(entity, types.MessageEntityMentionName)
+            ) or (
+                isinstance(entity, types.MessageEntityTextUrl)
+                and self._url_matcher.match(entity.url)
             ):
                 drop_entity = True
 
@@ -170,6 +167,25 @@ class UrlMessageFilter(UpdateEntitiesParams, MessageFilter):
 
             if drop_entity is False:
                 filtered_entities.append(entity)
+
+        # Double check for URLs in text
+        offset_error = 0
+        for start, end in self._url_matcher.search(filtered_text):
+            actual_start = start + offset_error
+            actual_end = end + offset_error
+
+            filtered_text = (
+                filtered_text[:actual_start]
+                + self._placeholder
+                + filtered_text[actual_end:]
+            )
+
+            diff = len(self._placeholder) - (end - start)
+            offset_error += diff
+
+            self.update_entities_params(
+                filtered_entities, actual_start, actual_end, diff
+            )
 
         # Filter link preview
         if (
