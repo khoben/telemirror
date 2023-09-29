@@ -299,12 +299,12 @@ class EventProcessor(CopyEventMessage):
         )
         if not deleting_messages:
             self._logger.warning(
-                f"[Delete message]: No target messages to delete " f"for chat#{chat_id}"
+                f"[Delete message]: No target messages to delete for chat#{chat_id}"
             )
             return
 
         self._logger.info(
-            f"[Delete message]: Delete {len(message_ids)} " f"messages from {chat_id}"
+            f"[Delete message]: Delete {len(message_ids)} messages from {chat_id}"
         )
 
         delete_per_channel: Dict[int, List[int]] = {}
@@ -510,12 +510,17 @@ class Mirroring:
                     # https://github.com/LonamiWebs/Telethon/issues/1536
                     # https://github.com/LonamiWebs/Telethon/issues/4119
 
-                    await asyncio.wait_for(client.connect(), timeout=client._timeout)
-                except asyncio.TimeoutError:
+                    connection_task = asyncio.create_task(client.connect())
+
+                    while not connection_task.done() and not client.is_connected():
+                        await asyncio.sleep(0)
+
+                    await asyncio.wait_for(connection_task, timeout=client._timeout)
+                except asyncio.TimeoutError as e:
                     raise RuntimeError(
                         "Timeout error while connecting to Telegram server, "
                         "try restart or get a new session key (run login.py)"
-                    )
+                    ) from e
 
             me = await client.get_me()
             if me is None:
