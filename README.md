@@ -53,7 +53,21 @@
 
 6. Setup mirror forwarding config:
 
-    [mirror.config.yml-example](./.configs/mirror.config.yml-example) contains an example config.
+    [mirror.config.yml-example](./.configs/mirror.config.yml-example) contains an example config: to set up a filter, specify the name of the filter (should be accessable from `./telemirror/messagefilters`) and pass named parameters with the same types but in yaml syntax. Example:
+
+    ```yaml
+    - ForwardFormatFilter:  # Filter name under telemirror/messagefilters
+        # Filter string argument
+        format: "{message_text}\n\nForwarded from [{channel_name}]({message_link})"
+
+    - SkipUrlFilter:
+        skip_mention: false # Filter bool argument
+
+    - UrlMessageFilter:
+        blacklist: !!set    # Filter set argument
+            ? t.me
+            ? google.com
+    ```
 
     `./.configs/mirror.config.yml` or `.env` (limited) can be used to configure mirroring:
 
@@ -63,7 +77,7 @@
     ```yaml
     # (Optional) Global filters, will be applied in order
     filters:
-      - ForwardFormatFilter: # Filter name under telemirror/messagefilters.py
+      - ForwardFormatFilter: # Filter name under ./telemirror/messagefilters
           format: ""           # Filters arguments
       - EmptyMessageFilter
       - UrlMessageFilter:
@@ -203,9 +217,9 @@ If you deployed manually, move to step 2.
 1. Create and activate python virtual environment
 
     ```bash
-    python -m venv myvenv
-    source myvenv/Scripts/activate # linux
-    myvenv/Scripts/activate # windows
+    python -m venv venv
+    source ./venv/Scripts/activate # linux
+    venv/Scripts/activate # windows
     ```
 2. Install dependencies
 

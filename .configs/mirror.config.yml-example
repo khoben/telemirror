@@ -1,7 +1,8 @@
 # (Optional) Global filters, will be applied in order
 filters:
   - ForwardFormatFilter: # Filter name under telemirror/messagefilters.py
-      format: ""           # Filters arguments
+      # Filters arguments
+      format: "{message_text}\n\nForwarded from [{channel_name}]({message_link})"
   - EmptyMessageFilter
   - UrlMessageFilter:
       blacklist: !!set
