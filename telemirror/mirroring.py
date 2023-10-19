@@ -7,7 +7,7 @@ from telethon.sessions import StringSession
 from telethon.tl import types
 
 from config import DirectionConfig
-from telemirror import patch_telethon
+from telemirror._patch import patch_input_media_with_spoiler, set_album_event_timeout
 from telemirror.hints import EventAlbumMessage, EventLike, EventMessage
 from telemirror.mixins import CopyEventMessage
 from telemirror.storage import Database, MirrorMessage
@@ -571,7 +571,8 @@ class Telemirror:
             database (`Database`): Message IDs storage
             logger (`str` | `logging.Logger`, optional): Logger. Defaults to None.
         """
-        patch_telethon(album_delay=1.01)
+        patch_input_media_with_spoiler()
+        set_album_event_timeout(delay_sec=1.01)
 
         # Preparation for splitting receiver and sender
         recv_client = send_client = TelegramClient(
