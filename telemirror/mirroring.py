@@ -101,19 +101,20 @@ class EventProcessor(CopyEventMessage):
                 )
                 continue
 
-            outgoing_message = None
+            outgoing_message: types.Message = None
             try:
-                if config.mode == "forward":
-                    await self._client.forward_messages(
-                        entity=outgoing_chat, messages=message.id
-                    )
-                else:
-                    outgoing_message = await self._client.send_message(
+                outgoing_message = (
+                    await self._client.send_message(
                         entity=outgoing_chat,
                         message=filtered_message,
                         formatting_entities=filtered_message.entities,
                         reply_to=reply_to_messages.get(outgoing_chat),
                     )
+                    if config.mode == "copy"
+                    else await self._client.forward_messages(
+                        entity=outgoing_chat, messages=message.id
+                    )
+                )
             except Exception as e:
                 self._logger.error(
                     f"Error while sending message to chat#{outgoing_chat}. "
@@ -191,22 +192,21 @@ class EventProcessor(CopyEventMessage):
                 # Pass unparsed text, since: https://github.com/LonamiWebs/Telethon/issues/3065
                 captions.append(incoming_message.text)
 
-            outgoing_messages = None
+            outgoing_messages: List[types.Message] = None
             try:
-                if config.mode == "forward":
-                    await self._client.forward_messages(
-                        entity=outgoing_chat,
-                        messages=idx,
-                    )
-                else:
-                    outgoing_messages: List[
-                        types.Message
-                    ] = await self._client.send_file(
+                outgoing_messages = (
+                    await self._client.send_file(
                         entity=outgoing_chat,
                         caption=captions,
                         file=files,
                         reply_to=reply_to_messages.get(outgoing_chat),
                     )
+                    if config.mode == "copy"
+                    else await self._client.forward_messages(
+                        entity=outgoing_chat,
+                        messages=idx,
+                    )
+                )
             except Exception as e:
                 self._logger.error(
                     f"Error while sending album to chat#{outgoing_chat}. "
@@ -255,7 +255,7 @@ class EventProcessor(CopyEventMessage):
                 )
                 continue
 
-            if config.disable_edit is True:
+            if config.disable_edit is True or config.mode == "forward":
                 continue
 
             proceed, filtered_message = await config.filters.process(
