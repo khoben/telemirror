@@ -78,9 +78,9 @@ class EventProcessor(CopyEventMessage):
             message.media.poll.quiz = None
 
         for outgoing_chat, config in outgoing_chats.items():
-            if (
-                restricted_saving_content
-                and not config.filters.restricted_content_allowed
+            if restricted_saving_content and (
+                not config.filters.restricted_content_allowed
+                or config.mode == "forward"
             ):
                 self._logger.warning(
                     f"Forwards from channel#{chat_id} "
@@ -103,12 +103,17 @@ class EventProcessor(CopyEventMessage):
 
             outgoing_message = None
             try:
-                outgoing_message = await self._client.send_message(
-                    entity=outgoing_chat,
-                    message=filtered_message,
-                    formatting_entities=filtered_message.entities,
-                    reply_to=reply_to_messages.get(outgoing_chat),
-                )
+                if config.mode == "forward":
+                    await self._client.forward_messages(
+                        entity=outgoing_chat, messages=message.id
+                    )
+                else:
+                    outgoing_message = await self._client.send_message(
+                        entity=outgoing_chat,
+                        message=filtered_message,
+                        formatting_entities=filtered_message.entities,
+                        reply_to=reply_to_messages.get(outgoing_chat),
+                    )
             except Exception as e:
                 self._logger.error(
                     f"Error while sending message to chat#{outgoing_chat}. "
@@ -154,9 +159,9 @@ class EventProcessor(CopyEventMessage):
         )
 
         for outgoing_chat, config in outgoing_chats.items():
-            if (
-                restricted_saving_content
-                and not config.filters.restricted_content_allowed
+            if restricted_saving_content and (
+                not config.filters.restricted_content_allowed
+                or config.mode == "forward"
             ):
                 self._logger.warning(
                     f"Forwards from channel#{chat_id} with "
@@ -188,12 +193,20 @@ class EventProcessor(CopyEventMessage):
 
             outgoing_messages = None
             try:
-                outgoing_messages: List[types.Message] = await self._client.send_file(
-                    entity=outgoing_chat,
-                    caption=captions,
-                    file=files,
-                    reply_to=reply_to_messages.get(outgoing_chat),
-                )
+                if config.mode == "forward":
+                    await self._client.forward_messages(
+                        entity=outgoing_chat,
+                        messages=idx,
+                    )
+                else:
+                    outgoing_messages: List[
+                        types.Message
+                    ] = await self._client.send_file(
+                        entity=outgoing_chat,
+                        caption=captions,
+                        file=files,
+                        reply_to=reply_to_messages.get(outgoing_chat),
+                    )
             except Exception as e:
                 self._logger.error(
                     f"Error while sending album to chat#{outgoing_chat}. "

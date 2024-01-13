@@ -89,6 +89,7 @@
     # (Optional) Global settings
     disable_edit: true
     disable_delete: true
+    mode: copy # or forward
 
     # (Required) Mirror directions
     directions:
@@ -100,6 +101,7 @@
         # Overwrite global settings
         disable_edit: false
         disable_delete: false
+        mode: forward
         # Overwrite global filters
         filters:
           - UrlMessageFilter:

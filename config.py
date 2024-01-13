@@ -3,7 +3,7 @@ Loads environment(.env)/config.yaml config
 """
 import os
 from dataclasses import dataclass
-from typing import List, Dict
+from typing import Dict, List, Literal
 
 from decouple import Csv, config
 
@@ -55,6 +55,7 @@ class DirectionConfig:
     disable_delete: bool
     disable_edit: bool
     filters: MessageFilter
+    mode: Literal["copy", "forward"] = "copy"
 
 
 # source and target chats mapping
@@ -108,6 +109,7 @@ if os.path.exists(YAML_CONFIG_FILE):
         disable_delete=yaml_config.get("disable_delete", False),
         disable_edit=yaml_config.get("disable_edit", False),
         filters=build_filters(yaml_config.get("filters", None), EmptyMessageFilter()),
+        mode=yaml_config.get("mode", "copy"),
     )
 
     for direction in yaml_config["directions"]:
@@ -122,6 +124,7 @@ if os.path.exists(YAML_CONFIG_FILE):
             filters=build_filters(
                 direction.get("filters", None), default_config.filters
             ),
+            mode=direction.get("mode", default_config.mode),
         )
 
         targets_config = {target: direction_config for target in targets}
