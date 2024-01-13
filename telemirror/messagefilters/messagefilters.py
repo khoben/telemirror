@@ -337,12 +337,17 @@ class KeywordReplaceFilter(UpdateEntitiesParams, WordBoundaryRegex, MessageFilte
         keywords (dict[str, str]): Keywords map
     """
 
-    def __init__(self, keywords: dict[str, str]) -> None:
-        self._regex = re.compile(
-            "|".join(
-                [f"{self.BOUNDARY_REGEX}{k}{self.BOUNDARY_REGEX}" for k in keywords]
-            ),
-            flags=re.IGNORECASE,
+    def __init__(self, keywords: dict[str, str], regex: bool = False) -> None:
+        self._lookup_regex = (
+            re.compile(
+                f'{self.BOUNDARY_REGEX}{"|".join(re.escape(k) for k in keywords)}{self.BOUNDARY_REGEX}',
+                flags=re.IGNORECASE,
+            )
+            if not regex
+            else re.compile(
+                f'{self.BOUNDARY_REGEX}{"|".join(keywords.keys())}{self.BOUNDARY_REGEX}',
+                flags=re.IGNORECASE,
+            )
         )
         # Lower-cased keywords mapping
         self._keywords_mapping = {k.lower(): v for k, v in keywords.items()}
@@ -380,7 +385,7 @@ class KeywordReplaceFilter(UpdateEntitiesParams, WordBoundaryRegex, MessageFilte
                 return replacement.upper()
             return replacement
 
-        filtered_text = self._regex.sub(repl, filtered_text)
+        filtered_text = self._lookup_regex.sub(repl, filtered_text)
 
         message.entities = filtered_entities
         message.message = utils.del_surrogate(filtered_text)
@@ -391,15 +396,20 @@ class KeywordReplaceFilter(UpdateEntitiesParams, WordBoundaryRegex, MessageFilte
 class SkipWithKeywordsFilter(WordBoundaryRegex, MessageFilter):
     """Skips message if some keyword found"""
 
-    def __init__(self, keywords: set[str]) -> None:
-        self._regex = re.compile(
-            "|".join(
-                [f"{self.BOUNDARY_REGEX}{k}{self.BOUNDARY_REGEX}" for k in keywords]
-            ),
-            flags=re.IGNORECASE,
+    def __init__(self, keywords: set[str], regex: bool = False) -> None:
+        self._lookup_regex = (
+            re.compile(
+                f'{self.BOUNDARY_REGEX}{"|".join(re.escape(k) for k in keywords)}{self.BOUNDARY_REGEX}',
+                flags=re.IGNORECASE,
+            )
+            if not regex
+            else re.compile(
+                f'{self.BOUNDARY_REGEX}{"|".join(keywords)}{self.BOUNDARY_REGEX}',
+                flags=re.IGNORECASE,
+            )
         )
 
     async def _process_message(
         self, message: EventMessage, event_type: Type[EventLike]
     ) -> Tuple[bool, EventMessage]:
-        return self._regex.search(message.message) is None, message
+        return self._lookup_regex.search(message.message) is None, message

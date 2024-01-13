@@ -100,15 +100,9 @@ class CopyEventMessage:
 class WordBoundaryRegex:
     """
     Word boundary regex
-
-    Since \\b means (?:(?<!\w)(?=\w)|(?<=\w)(?!\w)),
-    that doesn't match special characters such as '@' or '.',
-    specify spaces and punctuation as word boundaries.
     """
 
-    BOUNDARY_REGEX = (
-        r"(?:(?<![^\s,.!?\\-])(?=[^\s,.!?\\-])|(?<=[^\s,.!?\\-])(?![^\s,.!?\\-]))"
-    )
+    BOUNDARY_REGEX = r"\b"
 
 
 class UpdateEntitiesParams:

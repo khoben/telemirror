@@ -107,6 +107,14 @@
           - UrlMessageFilter:
               blacklist: !!set
                 ? t.me
+          - KeywordReplaceFilter:
+              keywords:
+                "google.com": "bing.com"
+              regex: false # treat keywords as plain text
+          - SkipWithKeywordsFilter:
+              keywords: !!set
+                ? "stopword"
+              regex: true # treat keywords as regex expr
     ```
     </details>
 
