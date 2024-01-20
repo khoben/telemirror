@@ -112,7 +112,7 @@ class EventProcessor(CopyEventMessage):
                     )
                     if config.mode == "copy"
                     else await self._client.forward_messages(
-                        entity=outgoing_chat, messages=message.id
+                        entity=outgoing_chat, messages=message
                     )
                 )
             except Exception as e:
@@ -204,7 +204,7 @@ class EventProcessor(CopyEventMessage):
                     if config.mode == "copy"
                     else await self._client.forward_messages(
                         entity=outgoing_chat,
-                        messages=idx,
+                        messages=album,
                     )
                 )
             except Exception as e:
