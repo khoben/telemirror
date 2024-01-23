@@ -20,6 +20,9 @@ directions:
   - from: [-1001, -1002, -1003]
     to: [-100203]
 
+  - from: [-1000#3] # forwards from topic to topic
+    to: [-1001#4]
+
   - from: [-100226]
     to: [-1006, -1008]
     # Overwrite global settings

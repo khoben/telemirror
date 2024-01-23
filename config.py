@@ -3,7 +3,7 @@ Loads environment(.env)/config.yaml config
 """
 import os
 from dataclasses import dataclass
-from typing import Dict, List, Literal
+from typing import Dict, List, Literal, Optional
 
 from decouple import Csv, config
 
@@ -50,16 +50,28 @@ LOG_LEVEL: str = config("LOG_LEVEL", default="INFO").upper()
 ###############Channel mirroring config#################
 
 
-@dataclass
+@dataclass(frozen=True)
 class DirectionConfig:
     disable_delete: bool
     disable_edit: bool
     filters: MessageFilter
+    from_topic_id: Optional[int] = None
+    to_topic_id: Optional[int] = None
     mode: Literal["copy", "forward"] = "copy"
+
+    def __repr__(self) -> str:
+        return (
+            f"mode: {self.mode}, "
+            f"deleting: {not self.disable_delete}, "
+            f"editing: {not self.disable_edit}, "
+            f"{f'from_topic_id: {self.from_topic_id}, ' if self.from_topic_id else ''}"
+            f"{f'to_topic_id: {self.to_topic_id}, ' if self.to_topic_id else ''}"
+            f"filters: {self.filters}"
+        )
 
 
 # source and target chats mapping
-CHAT_MAPPING: Dict[int, Dict[int, DirectionConfig]] = {}
+CHAT_MAPPING: Dict[int, Dict[int, List[DirectionConfig]]] = {}
 
 YAML_CONFIG_FILE = "./.configs/mirror.config.yml"
 
@@ -72,7 +84,6 @@ if os.path.exists("./mirror.config.yml"):
 if os.path.exists(YAML_CONFIG_FILE):
     from importlib import import_module
     from types import ModuleType
-    from typing import Optional
 
     import yaml
 
@@ -105,41 +116,55 @@ if os.path.exists(YAML_CONFIG_FILE):
 
         return CompositeMessageFilter(*filters) if (len(filters) > 1) else filters[0]
 
-    default_config = DirectionConfig(
-        disable_delete=yaml_config.get("disable_delete", False),
-        disable_edit=yaml_config.get("disable_edit", False),
-        filters=build_filters(yaml_config.get("filters", None), EmptyMessageFilter()),
-        mode=yaml_config.get("mode", "copy"),
+    default_filters = build_filters(
+        yaml_config.get("filters", None), EmptyMessageFilter()
     )
 
     for direction in yaml_config["directions"]:
-        sources: list[int] = direction["from"]
-        targets: list[int] = direction["to"]
-
-        direction_config = DirectionConfig(
-            disable_delete=direction.get(
-                "disable_delete", default_config.disable_delete
-            ),
-            disable_edit=direction.get("disable_edit", default_config.disable_edit),
-            filters=build_filters(
-                direction.get("filters", None), default_config.filters
-            ),
-            mode=direction.get("mode", default_config.mode),
-        )
-
-        targets_config = {target: direction_config for target in targets}
+        sources: list = direction["from"]
+        targets: list = direction["to"]
 
         for source in sources:
-            CHAT_MAPPING.setdefault(source, {}).update(targets_config)
+            source_topic_id = None
+            if isinstance(source, str):
+                if "#" in source:
+                    source, source_topic_id = map(int, source.split("#"))
+                else:
+                    source = int(source)
+
+            for target in targets:
+                target_topic_id = None
+                if isinstance(target, str):
+                    if "#" in target:
+                        target, target_topic_id = map(int, target.split("#"))
+                    else:
+                        target = int(target)
+
+                CHAT_MAPPING.setdefault(source, {}).setdefault(target, []).append(
+                    DirectionConfig(
+                        disable_delete=direction.get(
+                            "disable_delete", yaml_config.get("disable_delete", False)
+                        ),
+                        disable_edit=direction.get(
+                            "disable_edit", yaml_config.get("disable_edit", False)
+                        ),
+                        filters=build_filters(
+                            direction.get("filters", None), default_filters
+                        ),
+                        mode=direction.get("mode", yaml_config.get("mode", "copy")),
+                        from_topic_id=source_topic_id,
+                        to_topic_id=target_topic_id,
+                    )
+                )
 
 else:
     # Mirror config thru environment vars
     from functools import partial
 
     def build_mapping_from_env(
-        direction_config: DirectionConfig, env_str: str
-    ) -> Dict[int, Dict[int, DirectionConfig]]:
-        mapping: Dict[int, Dict[int, DirectionConfig]] = {}
+        disable_edit: bool, disable_delete: bool, filters: MessageFilter, env_str: str
+    ) -> Dict[int, Dict[int, List[DirectionConfig]]]:
+        mapping: Dict[int, Dict[int, List[DirectionConfig]]] = {}
 
         if not env_str:
             return mapping
@@ -147,14 +172,35 @@ else:
         import re
 
         matches = re.findall(
-            r"\[?((?:-?\d+,?)+):((?:-?\d+,?)+)\]?", env_str, re.MULTILINE
+            r"\[?((?:-?\d+(?:#\d+)?,?)+):((?:-?\d+(?:#\d+)?,?)+)\]?",
+            env_str,
+            re.MULTILINE,
         )
 
-        for match in matches:
-            sources = [int(val) for val in match[0].split(",")]
-            targets_config = {int(val): direction_config for val in match[1].split(",")}
-            for source in sources:
-                mapping.setdefault(source, {}).update(targets_config)
+        for sources, targets in matches:
+            for source in sources.split(","):
+                source_topic_id = None
+                if "#" in source:
+                    source, source_topic_id = map(int, source.split("#"))
+                else:
+                    source = int(source)
+
+                for target in targets.split(","):
+                    target_topic_id = None
+                    if "#" in target:
+                        target, target_topic_id = map(int, target.split("#"))
+                    else:
+                        target = int(target)
+
+                    mapping.setdefault(source, {}).setdefault(target, []).append(
+                        DirectionConfig(
+                            disable_delete=disable_delete,
+                            disable_edit=disable_edit,
+                            filters=filters,
+                            from_topic_id=source_topic_id,
+                            to_topic_id=target_topic_id,
+                        )
+                    )
 
         return mapping
 
@@ -179,11 +225,12 @@ else:
     else:
         message_filter = EmptyMessageFilter()
 
-    default_config = DirectionConfig(
-        disable_delete=DISABLE_DELETE, disable_edit=DISABLE_EDIT, filters=message_filter
+    cast_env_chat_mapping = partial(
+        build_mapping_from_env,
+        DISABLE_EDIT,
+        DISABLE_DELETE,
+        message_filter,
     )
-
-    cast_env_chat_mapping = partial(build_mapping_from_env, default_config)
 
     CHAT_MAPPING = config("CHAT_MAPPING", cast=cast_env_chat_mapping, default="")
 

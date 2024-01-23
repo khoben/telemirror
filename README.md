@@ -2,7 +2,7 @@
 
 ### Functionality
 - Live forwarding and updating messages
-- Source and target channels/chats (one-to-one, many-to-one, many-to-many) mapping
+- Source and target channels/chats/topics (one-to-one, many-to-one, many-to-many) mapping
 - Incoming message filters: word replacing, forward formating, skipping by keyword and more
 
 ## Prepare
@@ -95,6 +95,9 @@
     directions:
       - from: [-1001, -1002, -1003]
         to: [-100203]
+
+      - from: [-1000#3] # forwards from topic to topic
+        to: [-1001#4]
 
       - from: [-100226]
         to: [-1006, -1008]

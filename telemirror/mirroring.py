@@ -7,7 +7,13 @@ from telethon.sessions import StringSession
 from telethon.tl import types
 
 from config import DirectionConfig
-from telemirror._patch import patch_input_media_with_spoiler, set_album_event_timeout
+from telemirror._patch import (
+    forward_messages,
+    patch_input_media_with_spoiler,
+    send_file,
+    send_message,
+    set_album_event_timeout,
+)
 from telemirror.hints import EventAlbumMessage, EventLike, EventMessage
 from telemirror.mixins import CopyEventMessage
 from telemirror.storage import Database, MirrorMessage
@@ -16,7 +22,7 @@ from telemirror.storage import Database, MirrorMessage
 class EventProcessor(CopyEventMessage):
     def __init__(
         self: "EventProcessor",
-        chat_mapping: Dict[int, Dict[int, DirectionConfig]],
+        chat_mapping: Dict[int, Dict[int, List[DirectionConfig]]],
         database: Database,
         client: TelegramClient,
         logger: logging.Logger,
@@ -24,7 +30,7 @@ class EventProcessor(CopyEventMessage):
         """Message event processor
 
         Args:
-            chat_mapping (`Dict[int, Dict[int, DirectionConfig]]`): Chats mappings
+            chat_mapping (`Dict[int, Dict[int, List[DirectionConfig]]]`): Chats mappings
             database (`Database`): Message IDs storage
             client (`TelegramClient`): Message sender client
             logger (`logging.Logger`): Logger
@@ -77,60 +83,85 @@ class EventProcessor(CopyEventMessage):
         if isinstance(message.media, types.MessageMediaPoll):
             message.media.poll.quiz = None
 
-        for outgoing_chat, config in outgoing_chats.items():
-            if restricted_saving_content and (
-                not config.filters.restricted_content_allowed
-                or config.mode == "forward"
-            ):
-                self._logger.warning(
-                    f"Forwards from channel#{chat_id} "
-                    f"with `restricted saving content` "
-                    f"enabled to channel#{outgoing_chat} are not supported."
-                )
-                continue
+        for outgoing_chat, configs in outgoing_chats.items():
+            for config in configs:
+                if config.from_topic_id is not None:
+                    if message.reply_to is None:
+                        continue
+                    if message.reply_to.reply_to_top_id is not None:
+                        if message.reply_to.reply_to_top_id != config.from_topic_id:
+                            continue
+                    else:
+                        if message.reply_to.reply_to_msg_id != config.from_topic_id:
+                            continue
 
-            filtered_message: EventMessage
-            proceed, filtered_message = await config.filters.process(
-                self.copy_message(message), events.NewMessage.Event
-            )
-
-            if proceed is False:
-                self._logger.info(
-                    f"[New message]: Message {message_link} was skipped "
-                    f"by the filter for chat#{outgoing_chat}"
-                )
-                continue
-
-            outgoing_message: types.Message = None
-            try:
-                outgoing_message = (
-                    await self._client.send_message(
-                        entity=outgoing_chat,
-                        message=filtered_message,
-                        formatting_entities=filtered_message.entities,
-                        reply_to=reply_to_messages.get(outgoing_chat),
+                if restricted_saving_content and (
+                    not config.filters.restricted_content_allowed
+                    or config.mode == "forward"
+                ):
+                    self._logger.warning(
+                        f"Forwards from channel#{chat_id} "
+                        f"with `restricted saving content` "
+                        f"enabled to channel#{outgoing_chat} are not supported."
                     )
-                    if config.mode == "copy"
-                    else await self._client.forward_messages(
-                        entity=outgoing_chat, messages=message
-                    )
-                )
-            except Exception as e:
-                self._logger.error(
-                    f"Error while sending message to chat#{outgoing_chat}. "
-                    f"{type(e).__name__}: {e}"
-                )
-                continue
+                    continue
 
-            if outgoing_message:
-                await self._database.insert(
-                    MirrorMessage(
-                        original_id=filtered_message.id,
-                        original_channel=chat_id,
-                        mirror_id=outgoing_message.id,
-                        mirror_channel=outgoing_chat,
-                    )
+                filtered_message: EventMessage
+                proceed, filtered_message = await config.filters.process(
+                    self.copy_message(message), events.NewMessage.Event
                 )
+
+                if proceed is False:
+                    self._logger.info(
+                        f"[New message]: Message {message_link} was skipped "
+                        f"by the filter for chat#{outgoing_chat}"
+                    )
+                    continue
+
+                outgoing_topic_reply = (
+                    reply_to_messages.get(outgoing_chat) is not None
+                    and config.to_topic_id is not None
+                )
+
+                outgoing_message: types.Message = None
+                try:
+                    outgoing_message = (
+                        await send_message(
+                            self._client,
+                            entity=outgoing_chat,
+                            message=filtered_message,
+                            formatting_entities=filtered_message.entities,
+                            reply_to=reply_to_messages.get(outgoing_chat)
+                            if outgoing_topic_reply or config.to_topic_id is None
+                            else config.to_topic_id,
+                            reply_to_topic_id=config.to_topic_id
+                            if outgoing_topic_reply
+                            else None,
+                        )
+                        if config.mode == "copy"
+                        else await forward_messages(
+                            self._client,
+                            entity=outgoing_chat,
+                            messages=message,
+                            reply_to_topic_id=config.to_topic_id,
+                        )
+                    )
+                except Exception as e:
+                    self._logger.error(
+                        f"Error while sending message to chat#{outgoing_chat}. "
+                        f"{type(e).__name__}: {e}"
+                    )
+                    continue
+
+                if outgoing_message:
+                    await self._database.insert(
+                        MirrorMessage(
+                            original_id=filtered_message.id,
+                            original_channel=chat_id,
+                            mirror_id=outgoing_message.id,
+                            mirror_channel=outgoing_chat,
+                        )
+                    )
 
     @__handle_exceptions
     async def new_album(
@@ -159,76 +190,106 @@ class EventProcessor(CopyEventMessage):
             else {}
         )
 
-        for outgoing_chat, config in outgoing_chats.items():
-            if restricted_saving_content and (
-                not config.filters.restricted_content_allowed
-                or config.mode == "forward"
-            ):
-                self._logger.warning(
-                    f"Forwards from channel#{chat_id} with "
-                    f"`restricted saving content` "
-                    f"enabled to channel#{outgoing_chat} are not supported."
-                )
-                continue
+        for outgoing_chat, configs in outgoing_chats.items():
+            for config in configs:
+                if config.from_topic_id is not None:
+                    if incoming_first_message.reply_to is None:
+                        continue
+                    if incoming_first_message.reply_to.reply_to_top_id is not None:
+                        if (
+                            incoming_first_message.reply_to.reply_to_top_id
+                            != config.from_topic_id
+                        ):
+                            continue
+                    else:
+                        if (
+                            incoming_first_message.reply_to.reply_to_msg_id
+                            != config.from_topic_id
+                        ):
+                            continue
 
-            filtered_album: EventAlbumMessage
-            proceed, filtered_album = await config.filters.process(
-                self.copy_album(album), events.Album.Event
-            )
-
-            if proceed is False:
-                self._logger.info(
-                    f"[New album]: Message {album_link} was skipped "
-                    f"by the filter for chat#{outgoing_chat}"
-                )
-                continue
-
-            idx: List[int] = []
-            files: List[types.TypeMessageMedia] = []
-            captions: List[str] = []
-            for incoming_message in filtered_album:
-                idx.append(incoming_message.id)
-                files.append(incoming_message.media)
-                # Pass unparsed text, since: https://github.com/LonamiWebs/Telethon/issues/3065
-                captions.append(incoming_message.text)
-
-            outgoing_messages: List[types.Message] = None
-            try:
-                outgoing_messages = (
-                    await self._client.send_file(
-                        entity=outgoing_chat,
-                        caption=captions,
-                        file=files,
-                        reply_to=reply_to_messages.get(outgoing_chat),
+                if restricted_saving_content and (
+                    not config.filters.restricted_content_allowed
+                    or config.mode == "forward"
+                ):
+                    self._logger.warning(
+                        f"Forwards from channel#{chat_id} with "
+                        f"`restricted saving content` "
+                        f"enabled to channel#{outgoing_chat} are not supported."
                     )
-                    if config.mode == "copy"
-                    else await self._client.forward_messages(
-                        entity=outgoing_chat,
-                        messages=album,
-                    )
-                )
-            except Exception as e:
-                self._logger.error(
-                    f"Error while sending album to chat#{outgoing_chat}. "
-                    f"{type(e).__name__}: {e}"
-                )
-                continue
+                    continue
 
-            # Expect non-empty list of messages
-            if outgoing_messages and utils.is_list_like(outgoing_messages):
-                await self._database.insert_batch(
-                    [
-                        MirrorMessage(
-                            original_id=idx[message_index],
-                            original_channel=chat_id,
-                            mirror_id=outgoing_message.id,
-                            mirror_channel=outgoing_chat,
-                        )
-                        for message_index, outgoing_message in enumerate(
-                            outgoing_messages
-                        )
-                    ]
+                filtered_album: EventAlbumMessage
+                proceed, filtered_album = await config.filters.process(
+                    self.copy_album(album), events.Album.Event
                 )
+
+                if proceed is False:
+                    self._logger.info(
+                        f"[New album]: Message {album_link} was skipped "
+                        f"by the filter for chat#{outgoing_chat}"
+                    )
+                    continue
+
+                idxs: List[int] = []
+                files: List[types.TypeMessageMedia] = []
+                captions: List[str] = []
+                for incoming_message in filtered_album:
+                    idxs.append(incoming_message.id)
+                    files.append(incoming_message.media)
+                    # Pass unparsed text, since: https://github.com/LonamiWebs/Telethon/issues/3065
+                    captions.append(incoming_message.text)
+
+                outgoing_topic_reply = (
+                    reply_to_messages.get(outgoing_chat) is not None
+                    and config.to_topic_id is not None
+                )
+
+                outgoing_messages: List[types.Message] = None
+                try:
+                    outgoing_messages = (
+                        await send_file(
+                            self._client,
+                            entity=outgoing_chat,
+                            caption=captions,
+                            file=files,
+                            reply_to=reply_to_messages.get(outgoing_chat)
+                            if outgoing_topic_reply or config.to_topic_id is None
+                            else config.to_topic_id,
+                            reply_to_topic_id=config.to_topic_id
+                            if outgoing_topic_reply
+                            else None,
+                        )
+                        if config.mode == "copy"
+                        else await forward_messages(
+                            self._client,
+                            entity=outgoing_chat,
+                            messages=album,
+                            reply_to_topic_id=config.to_topic_id,
+                        )
+                    )
+                except Exception as e:
+                    self._logger.error(
+                        f"Error while sending album to chat#{outgoing_chat}. "
+                        f"{type(e).__name__}: {e}"
+                    )
+                    continue
+
+                # Expect non-empty list of messages
+                if utils.is_list_like(outgoing_messages):
+                    await self._database.insert_batch(
+                        [
+                            MirrorMessage(
+                                original_id=idxs[message_index],
+                                original_channel=chat_id,
+                                mirror_id=outgoing_message.id,
+                                mirror_channel=outgoing_chat,
+                            )
+                            for message_index, outgoing_message in enumerate(
+                                outgoing_messages
+                            )
+                        ]
+                    )
 
     @__handle_exceptions
     async def edit_message(
@@ -244,64 +305,65 @@ class EventProcessor(CopyEventMessage):
         self._logger.info(f"[Edit message]: {message_link}")
 
         for outgoing_message in outgoing_messages:
-            config = self._chat_mapping.get(chat_id, {}).get(
+            configs = self._chat_mapping.get(chat_id, {}).get(
                 outgoing_message.mirror_channel
             )
 
-            if config is None:
+            if configs is None:
                 self._logger.warning(
-                    f"[Edit message]: No direction config for "
+                    f"[Edit message]: No direction configs for "
                     f"{chat_id}->{outgoing_message.mirror_channel}"
                 )
                 continue
 
-            if config.disable_edit is True or config.mode == "forward":
-                continue
+            for config in configs:
+                if config.disable_edit is True or config.mode == "forward":
+                    continue
 
-            proceed, filtered_message = await config.filters.process(
-                self.copy_message(message), events.MessageEdited.Event
-            )
-            if proceed is False:
-                self._logger.info(
-                    f"[Edit message]: Message {message_link} was skipped "
-                    f"by the filter for chat#{outgoing_message.mirror_channel}"
+                proceed, filtered_message = await config.filters.process(
+                    self.copy_message(message), events.MessageEdited.Event
                 )
-                continue
+                if proceed is False:
+                    self._logger.info(
+                        f"[Edit message]: Message {message_link} was skipped "
+                        f"by the filter for chat#{outgoing_message.mirror_channel}"
+                    )
+                    continue
 
-            # Prevent `MediaPrevInvalidError`: The old media cannot be edited
-            # with anything else (such as stickers or voice notes).
-            edit_media_allowed = (
-                not isinstance(filtered_message.media, types.MessageMediaDocument)
-                or not isinstance(filtered_message.media.document, types.Document)
-                or not any(
-                    isinstance(attr, types.DocumentAttributeAudio)
-                    and attr.voice is True
-                    for attr in filtered_message.media.document.attributes
+                # Prevent `MediaPrevInvalidError`: The old media cannot be edited
+                # with anything else (such as stickers or voice notes).
+                edit_media_allowed = (
+                    not isinstance(filtered_message.media, types.MessageMediaDocument)
+                    or not isinstance(filtered_message.media.document, types.Document)
+                    or not any(
+                        isinstance(attr, types.DocumentAttributeAudio)
+                        and attr.voice is True
+                        for attr in filtered_message.media.document.attributes
+                    )
                 )
-            )
-            try:
-                await self._client.edit_message(
-                    entity=outgoing_message.mirror_channel,
-                    message=outgoing_message.mirror_id,
-                    text=filtered_message.message,
-                    formatting_entities=filtered_message.entities,
-                    file=filtered_message.media if edit_media_allowed else None,
-                    link_preview=isinstance(
-                        filtered_message.media, types.MessageMediaWebPage
-                    ),
-                )
-            except errors.MessageNotModifiedError:
-                self._logger.warning(
-                    f"Suppressed MessageNotModifiedError for message "
-                    f"{outgoing_message.mirror_channel}#{outgoing_message.mirror_id}"
-                )
+                try:
+                    await self._client.edit_message(
+                        entity=outgoing_message.mirror_channel,
+                        message=outgoing_message.mirror_id,
+                        text=filtered_message.message,
+                        formatting_entities=filtered_message.entities,
+                        file=filtered_message.media if edit_media_allowed else None,
+                        link_preview=isinstance(
+                            filtered_message.media, types.MessageMediaWebPage
+                        ),
+                    )
+                except errors.MessageNotModifiedError:
+                    self._logger.warning(
+                        f"Suppressed MessageNotModifiedError for message "
+                        f"{outgoing_message.mirror_channel}#{outgoing_message.mirror_id}"
+                    )
 
-            except Exception as e:
-                self._logger.error(
-                    f"Error while editing message "
-                    f"{outgoing_message.mirror_channel}#{outgoing_message.mirror_id}. "
-                    f"{type(e).__name__}: {e}"
-                )
+                except Exception as e:
+                    self._logger.error(
+                        f"Error while editing message "
+                        f"{outgoing_message.mirror_channel}#{outgoing_message.mirror_id}. "
+                        f"{type(e).__name__}: {e}"
+                    )
 
     @__handle_exceptions
     async def delete_message(
@@ -320,31 +382,32 @@ class EventProcessor(CopyEventMessage):
             f"[Delete message]: Delete {len(message_ids)} messages from {chat_id}"
         )
 
-        delete_per_channel: Dict[int, List[int]] = {}
+        deleting_per_channel: Dict[int, List[int]] = {}
 
         for deleting_message in deleting_messages:
-            config = self._chat_mapping.get(chat_id, {}).get(
+            configs = self._chat_mapping.get(chat_id, {}).get(
                 deleting_message.mirror_channel
             )
 
-            if config is None:
+            if configs is None:
                 self._logger.warning(
-                    f"[Delete message]: No direction config for "
+                    f"[Delete message]: No direction configs for "
                     f"{chat_id}->{deleting_message.mirror_channel}"
                 )
                 continue
 
-            if config.disable_delete is True:
-                continue
+            for config in configs:
+                if config.disable_delete is True:
+                    continue
 
-            delete_per_channel.setdefault(deleting_message.mirror_channel, []).append(
-                deleting_message.mirror_id
-            )
+                deleting_per_channel.setdefault(
+                    deleting_message.mirror_channel, []
+                ).append(deleting_message.mirror_id)
 
-        for channel_id, message_list in delete_per_channel.items():
+        for channel_id, message_ids in deleting_per_channel.items():
             try:
                 await self._client.delete_messages(
-                    entity=channel_id, message_ids=message_list
+                    entity=channel_id, message_ids=message_ids
                 )
             except Exception as e:
                 self._logger.error(
@@ -460,7 +523,7 @@ class EventHandlers:
 class Mirroring:
     def __init__(
         self: "Mirroring",
-        chat_mapping: Dict[int, Dict[int, DirectionConfig]],
+        chat_mapping: Dict[int, Dict[int, List[DirectionConfig]]],
         database: Database,
         receiver: TelegramClient,
         sender: TelegramClient,
@@ -469,7 +532,7 @@ class Mirroring:
         """Configure channels mirroring
 
         Args:
-            chat_mapping (`Dict[int, Dict[int, DirectionConfig]]`): Chats mappings
+            chat_mapping (`Dict[int, Dict[int, List[DirectionConfig]]]`): Chats mappings
             database (`Database`): Message IDs storage
             receiver (`TelegramClient`): Message receiver client
             sender (`TelegramClient`): Message sender client, can be same as `receiver`
@@ -505,8 +568,8 @@ class Mirroring:
         """Stringify mirror config"""
         mirror_mapping = "\n".join(
             [
-                f'{f} -> {", ".join(map(lambda x: f"{x} [{to[x]}]", to))}'
-                for (f, to) in self._chat_mapping.items()
+                f'{source} -> {", ".join(map(lambda x: f"{x} [{targets[x]}]", targets))}'
+                for (source, targets) in self._chat_mapping.items()
             ]
         )
 
@@ -570,7 +633,7 @@ class Telemirror:
         api_id: str,
         api_hash: str,
         session_string: str,
-        chat_mapping: Dict[int, Dict[int, DirectionConfig]],
+        chat_mapping: Dict[int, Dict[int, List[DirectionConfig]]],
         database: Database,
         logger: Union[str, logging.Logger] = None,
     ):
@@ -580,7 +643,7 @@ class Telemirror:
             api_id (`str`): Telegram API id
             api_hash (`str`): Telegram API hash
             session_string (`str`): Telegram (telethon) session string
-            chat_mapping (`Dict[int, Dict[int, DirectionConfig]]`): Chats mappings
+            chat_mapping (`Dict[int, Dict[int, List[DirectionConfig]]]`): Chats mappings
             database (`Database`): Message IDs storage
             logger (`str` | `logging.Logger`, optional): Logger. Defaults to None.
         """
