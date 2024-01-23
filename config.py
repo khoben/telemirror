@@ -35,7 +35,7 @@ DB_HOST: str = config("DB_HOST", default=None)
 if not USE_MEMORY_DB and DB_URL is None and DB_HOST is None:
     raise Exception(
         "The database configuration is incorrect. "
-        "Please provide valid DB_URL (or DB_HOST, DB_NAME, DB_USER, DB_PASS) "
+        "Please provide valid DATABASE_URL (or DB_HOST, DB_NAME, DB_USER, DB_PASS) "
         "or set USE_MEMORY_DB to True to use in-memory database."
     )
 
