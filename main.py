@@ -4,7 +4,7 @@ from telemirror.mirroring import Telemirror
 from telemirror.storage import InMemoryDatabase, PostgresDatabase
 
 
-async def serve_health_endpoint(host: str = "0.0.0.0", port: int = 8000) -> None:
+async def serve_health_endpoint(host: str, port: int) -> None:
     from aiohttp import web
 
     async def health(_):
@@ -47,8 +47,10 @@ async def run_telemirror(
     session_string: str,
     chat_mapping: dict,
     logger: logging.Logger,
+    host: str,
+    port: int,
 ):
-    await serve_health_endpoint()
+    await serve_health_endpoint(host=host, port=port)
 
     if use_memory_db:
         database = InMemoryDatabase()
@@ -75,7 +77,9 @@ def main():
         API_ID,
         CHAT_MAPPING,
         DB_URL,
+        HOST,
         LOG_LEVEL,
+        PORT,
         SESSION_STRING,
         USE_MEMORY_DB,
     )
@@ -86,6 +90,7 @@ def main():
             asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
     else:
         import uvloop
+
         uvloop.install()
 
     asyncio.run(
@@ -97,6 +102,8 @@ def main():
             session_string=SESSION_STRING,
             chat_mapping=CHAT_MAPPING,
             logger=configure_logging("telemirror", LOG_LEVEL),
+            host=HOST,
+            port=PORT,
         )
     )
 

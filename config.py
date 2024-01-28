@@ -47,6 +47,11 @@ if DB_URL is None:
 
 LOG_LEVEL: str = config("LOG_LEVEL", default="INFO").upper()
 
+# Application local host, defaults to 0.0.0.0
+HOST: str = config("HOST", default="0.0.0.0")
+# Application local port, defaults to 8000
+PORT: int = config("PORT", default=8000, cast=int)
+
 ###############Channel mirroring config#################
 
 
