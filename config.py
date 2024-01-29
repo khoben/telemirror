@@ -79,6 +79,7 @@ class DirectionConfig:
 CHAT_MAPPING: Dict[int, Dict[int, List[DirectionConfig]]] = {}
 
 YAML_CONFIG_FILE = "./.configs/mirror.config.yml"
+YAML_CONFIG_ENV: Optional[str] = config("YAML_CONFIG_ENV", default=None)
 
 # Check for deprecated config location
 if os.path.exists("./mirror.config.yml"):
@@ -86,7 +87,7 @@ if os.path.exists("./mirror.config.yml"):
 
 # Load mirror config from config.yml
 # otherwise from .env or environment
-if os.path.exists(YAML_CONFIG_FILE):
+if os.path.exists(YAML_CONFIG_FILE) or YAML_CONFIG_ENV:
     from importlib import import_module
     from types import ModuleType
 
@@ -96,8 +97,13 @@ if os.path.exists(YAML_CONFIG_FILE):
 
     yaml_config: dict = None
 
-    with open(YAML_CONFIG_FILE, encoding="utf8") as file:
-        yaml_config = yaml.load(file, Loader=yaml.FullLoader)
+    if YAML_CONFIG_ENV:
+        yaml_config = yaml.load(
+            YAML_CONFIG_ENV.replace("\\n", "\n"), Loader=yaml.FullLoader
+        )
+    else:
+        with open(YAML_CONFIG_FILE, encoding="utf8") as file:
+            yaml_config = yaml.load(file, Loader=yaml.FullLoader)
 
     if "targets" in yaml_config:
         raise ValueError(

@@ -136,6 +136,10 @@
     # id5:id6 means send messages from id5 to id6
     # [id1, id2, id3:id4];[id5:id6] semicolon means AND
     CHAT_MAPPING=[-100999999,-100999999,-100999999:-1009999999];
+    
+    # (Optional) YAML filter configuration thru single-lined env string (new lines (\n) should be replaced to \\n), other filter settings from env will be ignored
+    YAML_CONFIG_ENV=
+    
     # Remove URLs from incoming messages (true or false). Defaults to false
     REMOVE_URLS=false
     # Comma-separated list of URLs to remove (reddit.com,youtube.com)
