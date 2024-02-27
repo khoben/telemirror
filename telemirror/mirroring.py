@@ -85,12 +85,15 @@ class EventProcessor(CopyEventMessage):
 
         for outgoing_chat, configs in outgoing_chats.items():
             for config in configs:
-                if config.from_topic_id is not None:
+                # Check for incoming topic id, general topic has id = 1
+                if config.from_topic_id is not None and config.from_topic_id != 1:
                     if message.reply_to is None:
                         continue
+                    # Message in the topic
                     if message.reply_to.reply_to_top_id is not None:
                         if message.reply_to.reply_to_top_id != config.from_topic_id:
                             continue
+                    # Reply in the topic
                     else:
                         if message.reply_to.reply_to_msg_id != config.from_topic_id:
                             continue
@@ -192,15 +195,18 @@ class EventProcessor(CopyEventMessage):
 
         for outgoing_chat, configs in outgoing_chats.items():
             for config in configs:
-                if config.from_topic_id is not None:
+                # Check for incoming topic id, general topic has id = 1
+                if config.from_topic_id is not None and config.from_topic_id != 1:
                     if incoming_first_message.reply_to is None:
                         continue
+                    # Message in the topic
                     if incoming_first_message.reply_to.reply_to_top_id is not None:
                         if (
                             incoming_first_message.reply_to.reply_to_top_id
                             != config.from_topic_id
                         ):
                             continue
+                    # Reply in the topic
                     else:
                         if (
                             incoming_first_message.reply_to.reply_to_msg_id
