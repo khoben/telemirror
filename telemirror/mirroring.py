@@ -20,6 +20,8 @@ from telemirror.storage import Database, MirrorMessage
 
 
 class EventProcessor(CopyEventMessage):
+    GENERAL_TOPIC_ID = 1
+
     def __init__(
         self: "EventProcessor",
         chat_mapping: Dict[int, Dict[int, List[DirectionConfig]]],
@@ -85,18 +87,28 @@ class EventProcessor(CopyEventMessage):
 
         for outgoing_chat, configs in outgoing_chats.items():
             for config in configs:
-                # Check for incoming topic id, general topic has id = 1
-                if config.from_topic_id is not None and config.from_topic_id != 1:
-                    if message.reply_to is None:
+                if config.from_topic_id is not None:
+                    if (
+                        message.reply_to is None
+                        and config.from_topic_id != EventProcessor.GENERAL_TOPIC_ID
+                    ):
                         continue
-                    # Message in the topic
-                    if message.reply_to.reply_to_top_id is not None:
-                        if message.reply_to.reply_to_top_id != config.from_topic_id:
-                            continue
-                    # Reply in the topic
-                    else:
-                        if message.reply_to.reply_to_msg_id != config.from_topic_id:
-                            continue
+
+                    # message: topic_id = message.reply_to.reply_to_msg_id
+                    # reply: topic_id = message.reply_to.reply_to_top_id
+                    # general topic: topic_id = 1
+                    incoming_topic_id = (
+                        (
+                            message.reply_to.reply_to_top_id
+                            if message.reply_to.reply_to_top_id
+                            else message.reply_to.reply_to_msg_id
+                        )
+                        if message.reply_to and message.reply_to.forum_topic
+                        else EventProcessor.GENERAL_TOPIC_ID
+                    )
+
+                    if config.from_topic_id != incoming_topic_id:
+                        continue
 
                 if restricted_saving_content and (
                     not config.filters.restricted_content_allowed
@@ -195,24 +207,29 @@ class EventProcessor(CopyEventMessage):
 
         for outgoing_chat, configs in outgoing_chats.items():
             for config in configs:
-                # Check for incoming topic id, general topic has id = 1
-                if config.from_topic_id is not None and config.from_topic_id != 1:
-                    if incoming_first_message.reply_to is None:
+                if config.from_topic_id is not None:
+                    if (
+                        incoming_first_message.reply_to is None
+                        and config.from_topic_id != EventProcessor.GENERAL_TOPIC_ID
+                    ):
                         continue
-                    # Message in the topic
-                    if incoming_first_message.reply_to.reply_to_top_id is not None:
-                        if (
+
+                    # message: topic_id = message.reply_to.reply_to_msg_id
+                    # reply: topic_id = message.reply_to.reply_to_top_id
+                    # general topic: topic_id = 1
+                    incoming_topic_id = (
+                        (
                             incoming_first_message.reply_to.reply_to_top_id
-                            != config.from_topic_id
-                        ):
-                            continue
-                    # Reply in the topic
-                    else:
-                        if (
-                            incoming_first_message.reply_to.reply_to_msg_id
-                            != config.from_topic_id
-                        ):
-                            continue
+                            if incoming_first_message.reply_to.reply_to_top_id
+                            else incoming_first_message.reply_to.reply_to_msg_id
+                        )
+                        if incoming_first_message.reply_to
+                        and incoming_first_message.reply_to.forum_topic
+                        else EventProcessor.GENERAL_TOPIC_ID
+                    )
+
+                    if config.from_topic_id != incoming_topic_id:
+                        continue
 
                 if restricted_saving_content and (
                     not config.filters.restricted_content_allowed
