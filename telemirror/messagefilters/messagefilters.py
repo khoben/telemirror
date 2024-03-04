@@ -1,5 +1,5 @@
 import re
-from typing import Set, Tuple, Type, Union
+from typing import Optional, Set, Tuple, Type, Union
 
 from telethon import events, types, utils
 
@@ -231,17 +231,35 @@ class ForwardFormatFilter(ChannelName, MessageLink, MessageFilter):
 
     Args:
         format (str): Forward header format,
-        where `{channel_name}`, `{message_link}` and `{message_text}`
-        are placeholders to actual incoming message values.
+        where `{channel_name}`, `{message_link}`, `{sender_title}`, `{sender_username}`
+        and `{message_text}` are placeholders to actual incoming message values.
     """
 
     MESSAGE_PLACEHOLDER: str = "{message_text}"
+    CHANNEL_NAME_PLACEHOLDER: str = "{channel_name}"
+    MESSAGE_LINK_PLACEHOLDER: str = "{message_link}"
+    SENDER_TITLE_PLACEHOLDER: str = "{sender_title}"
+    SENDER_USERNAME_PLACEHOLDER: str = "{sender_username}"
+
     DEFAULT_FORMAT: str = (
         "{message_text}\n\nForwarded from [{channel_name}]({message_link})"
     )
 
     def __init__(self, format: str = DEFAULT_FORMAT) -> None:
         self._format = format
+
+        self._request_channel_name = (
+            ForwardFormatFilter.CHANNEL_NAME_PLACEHOLDER in format
+        )
+        self._request_message_link = (
+            ForwardFormatFilter.MESSAGE_LINK_PLACEHOLDER in format
+        )
+        self._request_sender_title = (
+            ForwardFormatFilter.SENDER_TITLE_PLACEHOLDER in format
+        )
+        self._request_sender_username = (
+            ForwardFormatFilter.SENDER_USERNAME_PLACEHOLDER in format
+        )
 
         from telethon.extensions import markdown as md_parser
 
@@ -258,15 +276,34 @@ class ForwardFormatFilter(ChannelName, MessageLink, MessageFilter):
         ):
             return True, message
 
-        message_link = self.message_link(message)
-        channel_name = self.channel_name(message)
+        message_link = (
+            self.message_link(message) or "" if self._request_message_link else ""
+        )
+        channel_name = (
+            self.channel_name(message) or "" if self._request_channel_name else ""
+        )
 
-        if not message_link or not channel_name:
-            return True, message
+        sender_title: str = ""
+        sender_username: str = ""
 
+        if self._request_sender_title or self._request_sender_username:
+            sender: Optional[
+                Union[types.User, types.Channel]
+            ] = await message.get_sender()
+
+            if sender:
+                if self._request_sender_title:
+                    sender_title = utils.get_display_name(sender) or ""
+
+                if self._request_sender_username:
+                    sender_username = sender.username or ""
+
+        # Fill all placeholders, except {message_text}
         pre_formatted_message = self._format.format(
             channel_name=channel_name,
             message_link=message_link,
+            sender_title=sender_title,
+            sender_username=sender_username,
             message_text=self.MESSAGE_PLACEHOLDER,
         )
         pre_formatted_text, pre_formatted_entities = self._parser.parse(
