@@ -480,3 +480,18 @@ class SkipWithKeywordsFilter(WordBoundaryRegex, MessageFilter):
         self, message: EventMessage, event_type: Type[EventLike]
     ) -> Tuple[bool, EventMessage]:
         return self._lookup_regex.search(message.message) is None, message
+
+
+class AllowWithKeywordsFilter(SkipWithKeywordsFilter):
+    """Allow message if some keyword found
+
+    Args:
+        keywords (dict[str, str]): Keywords map
+        lookup_whole_word (bool, optional): "Whole words only" lookup. Defaults to True
+        regex (bool, optional): Treats keywords as regex. Defaults to False
+    """
+
+    async def _process_message(
+        self, message: EventMessage, event_type: Type[EventLike]
+    ) -> Tuple[bool, EventMessage]:
+        return self._lookup_regex.search(message.message) is not None, message
