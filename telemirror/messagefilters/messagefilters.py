@@ -381,17 +381,27 @@ class KeywordReplaceFilter(UpdateEntitiesParams, WordBoundaryRegex, MessageFilte
     """Filter that maps keywords
     Args:
         keywords (dict[str, str]): Keywords map
+        lookup_whole_word (bool, optional): "Whole words only" lookup. Defaults to True
+        regex (bool, optional): Treats keywords as regex. Defaults to False
     """
 
-    def __init__(self, keywords: dict[str, str], regex: bool = False) -> None:
+    def __init__(
+        self,
+        keywords: dict[str, str],
+        lookup_whole_word: bool = True,
+        regex: bool = False,
+    ) -> None:
+        word_boundary = self.BOUNDARY_REGEX if lookup_whole_word else ""
         self._lookup_regex = (
             re.compile(
-                f'{self.BOUNDARY_REGEX}{"|".join(re.escape(k) for k in keywords)}{self.BOUNDARY_REGEX}',
+                "|".join(
+                    f"{word_boundary}{re.escape(k)}{word_boundary}" for k in keywords
+                ),
                 flags=re.IGNORECASE,
             )
             if not regex
             else re.compile(
-                f'{self.BOUNDARY_REGEX}{"|".join(keywords.keys())}{self.BOUNDARY_REGEX}',
+                "|".join(f"{word_boundary}{k}{word_boundary}" for k in keywords),
                 flags=re.IGNORECASE,
             )
         )
@@ -440,17 +450,28 @@ class KeywordReplaceFilter(UpdateEntitiesParams, WordBoundaryRegex, MessageFilte
 
 
 class SkipWithKeywordsFilter(WordBoundaryRegex, MessageFilter):
-    """Skips message if some keyword found"""
+    """Skips message if some keyword found
 
-    def __init__(self, keywords: set[str], regex: bool = False) -> None:
+    Args:
+        keywords (dict[str, str]): Keywords map
+        lookup_whole_word (bool, optional): "Whole words only" lookup. Defaults to True
+        regex (bool, optional): Treats keywords as regex. Defaults to False
+    """
+
+    def __init__(
+        self, keywords: set[str], lookup_whole_word: bool = True, regex: bool = False
+    ) -> None:
+        word_boundary = self.BOUNDARY_REGEX if lookup_whole_word else ""
         self._lookup_regex = (
             re.compile(
-                f'{self.BOUNDARY_REGEX}{"|".join(re.escape(k) for k in keywords)}{self.BOUNDARY_REGEX}',
+                "|".join(
+                    f"{word_boundary}{re.escape(k)}{word_boundary}" for k in keywords
+                ),
                 flags=re.IGNORECASE,
             )
             if not regex
             else re.compile(
-                f'{self.BOUNDARY_REGEX}{"|".join(keywords)}{self.BOUNDARY_REGEX}',
+                "|".join(f"{word_boundary}{k}{word_boundary}" for k in keywords),
                 flags=re.IGNORECASE,
             )
         )
