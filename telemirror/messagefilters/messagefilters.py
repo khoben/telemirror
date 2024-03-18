@@ -453,7 +453,7 @@ class SkipWithKeywordsFilter(WordBoundaryRegex, MessageFilter):
     """Skips message if some keyword found
 
     Args:
-        keywords (dict[str, str]): Keywords map
+        keywords (set[str]): Keywords set
         lookup_whole_word (bool, optional): "Whole words only" lookup. Defaults to True
         regex (bool, optional): Treats keywords as regex. Defaults to False
     """
@@ -486,7 +486,7 @@ class AllowWithKeywordsFilter(SkipWithKeywordsFilter):
     """Allow message if some keyword found
 
     Args:
-        keywords (dict[str, str]): Keywords map
+        keywords (set[str]): Keywords set
         lookup_whole_word (bool, optional): "Whole words only" lookup. Defaults to True
         regex (bool, optional): Treats keywords as regex. Defaults to False
     """
