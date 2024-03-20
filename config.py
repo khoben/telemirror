@@ -1,11 +1,12 @@
 """
 Loads environment(.env)/config.yaml config
 """
+
 import os
 from dataclasses import dataclass
 from typing import Dict, List, Literal, Optional
 
-from decouple import Csv, config
+from decouple import AutoConfig, Csv, RepositoryEnv
 
 from telemirror.messagefilters import (
     CompositeMessageFilter,
@@ -13,6 +14,65 @@ from telemirror.messagefilters import (
     MessageFilter,
     UrlMessageFilter,
 )
+
+
+class RepositoryMultilineEnv(RepositoryEnv):
+    """
+    Retrieves option keys from .env files with fall back to os.environ.
+    Multiline values are supported with '' or "" quoted strings.
+    """
+
+    def __init__(self, source, encoding=...):
+        self.data = {}
+        multiline_key = None
+        multiline_quote_sign = None
+        with open(source, encoding=encoding) as file_:
+            for line in file_:
+                if multiline_key:
+                    k = multiline_key
+                    v = line.rstrip()
+                    if v and v[-1] == multiline_quote_sign:
+                        v = v[:-1]
+                        multiline_key = None
+                        multiline_quote_sign = None
+
+                    self.data[k] += f"\n{v}"
+                    continue
+
+                line = line.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                k, v = line.split("=", 1)
+                k = k.strip()
+                v = v.strip()
+                if len(v) >= 2 and (
+                    (v[0] == "'" and v[-1] == "'") or (v[0] == '"' and v[-1] == '"')
+                ):
+                    v = v[1:-1]
+                elif v and (
+                    (v[0] == "'" and (len(v) < 2 or v[-1] != "'"))
+                    or (v[0] == '"' and (len(v) < 2 or v[-1] != '"'))
+                ):
+                    multiline_key = k
+                    multiline_quote_sign = v[0]
+                    v = v[1:]
+
+                self.data[k] = v
+
+        if multiline_key:
+            raise ValueError(
+                f"Unterminated multiline env string value for key = {multiline_key}, "
+                f"expected {multiline_quote_sign} at end"
+            )
+
+
+class Config(AutoConfig):
+    def __init__(self, search_path=None):
+        super().__init__(search_path)
+        self.SUPPORTED[".env"] = RepositoryMultilineEnv
+
+
+config = Config()
 
 # telegram app id
 API_ID: str = config("API_ID")
