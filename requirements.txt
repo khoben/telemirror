@@ -3,5 +3,5 @@ cryptg==0.4.0
 psycopg[binary,pool]==3.1.18
 python-decouple==3.8
 PyYAML==6.0.1
-aiohttp==3.9.3
+aiohttp==3.9.4
 uvloop==0.19.0; platform_system != "Windows"
