@@ -106,7 +106,8 @@ class UrlMessageFilter(UpdateEntitiesParams, MessageFilter):
         filter_mention: Union[bool, Set[str]] = False,
         filter_by_id_mention: bool = False,
     ) -> None:
-        self._placeholder = placeholder
+        self._placeholder = utils.add_surrogate(placeholder)
+        self._placeholder_len = len(self._placeholder)
 
         self._url_matcher = UrlMatcher(blacklist, whitelist)
 
@@ -130,23 +131,16 @@ class UrlMessageFilter(UpdateEntitiesParams, MessageFilter):
             update_pos = False
 
             if (
-                (
-                    isinstance(entity, types.MessageEntityUrl)
-                    and self._url_matcher.match(
-                        filtered_text[entity.offset : entity.offset + entity.length]
-                    )
+                isinstance(entity, types.MessageEntityUrl)
+                and self._url_matcher.match(
+                    filtered_text[entity.offset : entity.offset + entity.length]
                 )
-                or (
-                    isinstance(entity, types.MessageEntityMention)
-                    and self._match_mention(
-                        filtered_text[entity.offset : entity.offset + entity.length]
-                    )
+            ) or (
+                isinstance(
+                    entity, (types.MessageEntityMention, types.MessageEntityTextUrl)
                 )
-                or (
-                    isinstance(entity, types.MessageEntityTextUrl)
-                    and self._match_mention(
-                        filtered_text[entity.offset : entity.offset + entity.length]
-                    )
+                and self._match_mention(
+                    filtered_text[entity.offset : entity.offset + entity.length]
                 )
             ):
                 filtered_text = (
@@ -154,7 +148,7 @@ class UrlMessageFilter(UpdateEntitiesParams, MessageFilter):
                     + self._placeholder
                     + filtered_text[entity.offset + entity.length :]
                 )
-                entity_len_diff = len(self._placeholder) - entity.length
+                entity_len_diff = self._placeholder_len - entity.length
                 update_pos = True
                 drop_entity = True
             elif (
@@ -189,7 +183,7 @@ class UrlMessageFilter(UpdateEntitiesParams, MessageFilter):
                 + filtered_text[actual_end:]
             )
 
-            diff = len(self._placeholder) - (end - start)
+            diff = self._placeholder_len - (end - start)
             offset_error += diff
 
             self.update_entities_params(
@@ -420,7 +414,7 @@ class KeywordReplaceFilter(UpdateEntitiesParams, WordBoundaryRegex, MessageFilte
 
         def repl(match: re.Match[str]) -> str:
             group = match.group()
-            replacement = self._keywords_mapping.get(group.lower())
+            replacement = utils.add_surrogate(self._keywords_mapping.get(group.lower()))
 
             nonlocal entities_offset_error
             match_start, match_end = match.span()
