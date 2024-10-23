@@ -1,5 +1,5 @@
 telethon==1.37.0
-cryptg==0.4.0
+cryptg==0.5.0.post0
 psycopg[binary,pool]==3.2.1
 python-decouple==3.8
 PyYAML==6.0.2
