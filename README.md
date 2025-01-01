@@ -154,6 +154,14 @@
     ```
     </details>
 
+    **Channel mirroring config priority**:
+
+    - `YAML_CONFIG_ENV` from `.env`
+
+    - from `./.configs/mirror.config.yml` file
+
+    - `CHAT_MAPPING, REMOVE_URLS, REMOVE_URLS_LIST, REMOVE_URLS_WL, DISABLE_DELETE, DISABLE_EDIT` from `.env` file
+
     ❓ Channels ID can be fetched by using [Telegram bot](https://t.me/messageinformationsbot).
 
     ❗ Note: never push your `.env`/`.yml` files with real crendential to a public repo. Use a separate branch (eg, `heroku-branch`) with `.env`/`.yml` files to push to git-based deployment system like Heroku.
@@ -236,7 +244,7 @@ If you deployed manually, move to step 2.
     ```bash
     python -m venv venv
     source ./venv/Scripts/activate # linux
-    venv/Scripts/activate # windows
+    venv\Scripts\activate # windows
     ```
 2. Install dependencies
 
