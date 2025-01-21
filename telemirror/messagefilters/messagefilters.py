@@ -1,3 +1,4 @@
+import logging
 import re
 from typing import Optional, Set, Tuple, Type, Union
 
@@ -13,6 +14,8 @@ from ..mixins import (
     WordBoundaryRegex,
 )
 from .base import MessageFilter
+
+logger = logging.getLogger("telemirror")
 
 
 class EmptyMessageFilter(MessageFilter):
@@ -375,32 +378,31 @@ class KeywordReplaceFilter(UpdateEntitiesParams, WordBoundaryRegex, MessageFilte
     """Filter that maps keywords
     Args:
         keywords (dict[str, str]): Keywords map
-        lookup_whole_word (bool, optional): "Whole words only" lookup. Defaults to True
-        regex (bool, optional): Treats keywords as regex. Defaults to False
+        lookup_whole_word (bool, optional): [DEPRECATED] "Whole words only" lookup. Defaults to True
+        regex (bool, optional): [DEPRECATED] Treats keywords as regex. Defaults to False
     """
 
     def __init__(
         self,
         keywords: dict[str, str],
-        lookup_whole_word: bool = True,
-        regex: bool = False,
+        lookup_whole_word: Optional[bool] = None,
+        regex: Optional[bool] = None,
     ) -> None:
-        word_boundary = self.BOUNDARY_REGEX if lookup_whole_word else ""
-        self._lookup_regex = (
+        if lookup_whole_word is not None or regex is not None:
+            logger.warning(
+                "[KeywordReplaceFilter]: `lookup_whole_word` and `regex` are deprecated and will be removed in the future. "
+                "Regex keywords usage - r'word.*'"
+            )
+
+        self._lookup_regex = {
             re.compile(
-                "|".join(
-                    f"{word_boundary}{re.escape(k)}{word_boundary}" for k in keywords
-                ),
+                k.removeprefix("r'").removesuffix("'")
+                if k.startswith("r'")
+                else f"{self.BOUNDARY_REGEX}{re.escape(k)}{self.BOUNDARY_REGEX}",
                 flags=re.IGNORECASE,
-            )
-            if not regex
-            else re.compile(
-                "|".join(f"{word_boundary}{k}{word_boundary}" for k in keywords),
-                flags=re.IGNORECASE,
-            )
-        )
-        # Lower-cased keywords mapping
-        self._keywords_mapping = {k.lower(): v for k, v in keywords.items()}
+            ): utils.add_surrogate(v)
+            for k, v in keywords.items()
+        }
 
     async def _process_message(
         self, message: EventMessage, event_type: Type[EventLike]
@@ -412,9 +414,12 @@ class KeywordReplaceFilter(UpdateEntitiesParams, WordBoundaryRegex, MessageFilte
         filtered_entities = message.entities or []
         entities_offset_error = 0
 
+        current_replacement = None
+
         def repl(match: re.Match[str]) -> str:
+            replacement = current_replacement
+
             group = match.group()
-            replacement = utils.add_surrogate(self._keywords_mapping.get(group.lower()))
 
             nonlocal entities_offset_error
             match_start, match_end = match.span()
@@ -435,7 +440,9 @@ class KeywordReplaceFilter(UpdateEntitiesParams, WordBoundaryRegex, MessageFilte
                 return replacement.upper()
             return replacement
 
-        filtered_text = self._lookup_regex.sub(repl, filtered_text)
+        for k, v in self._lookup_regex.items():
+            current_replacement = v
+            filtered_text = k.sub(repl, filtered_text)
 
         message.entities = filtered_entities
         message.message = utils.del_surrogate(filtered_text)
@@ -448,26 +455,30 @@ class SkipWithKeywordsFilter(WordBoundaryRegex, MessageFilter):
 
     Args:
         keywords (set[str]): Keywords set
-        lookup_whole_word (bool, optional): "Whole words only" lookup. Defaults to True
-        regex (bool, optional): Treats keywords as regex. Defaults to False
+        lookup_whole_word (bool, optional): [DEPRECATED] "Whole words only" lookup. Defaults to True
+        regex (bool, optional): [DEPRECATED] Treats keywords as regex. Defaults to False
     """
 
     def __init__(
-        self, keywords: set[str], lookup_whole_word: bool = True, regex: bool = False
+        self,
+        keywords: set[str],
+        lookup_whole_word: Optional[bool] = None,
+        regex: Optional[bool] = None,
     ) -> None:
-        word_boundary = self.BOUNDARY_REGEX if lookup_whole_word else ""
-        self._lookup_regex = (
-            re.compile(
-                "|".join(
-                    f"{word_boundary}{re.escape(k)}{word_boundary}" for k in keywords
-                ),
-                flags=re.IGNORECASE,
+        if lookup_whole_word is not None or regex is not None:
+            logger.warning(
+                "[SkipWithKeywordsFilter]: `lookup_whole_word` and `regex` are deprecated and will be removed in the future. "
+                "Regex keywords usage - r'word.*'"
             )
-            if not regex
-            else re.compile(
-                "|".join(f"{word_boundary}{k}{word_boundary}" for k in keywords),
-                flags=re.IGNORECASE,
-            )
+
+        self._lookup_regex = re.compile(
+            "|".join(
+                k.removeprefix("r'").removesuffix("'")
+                if k.startswith("r'")
+                else f"{self.BOUNDARY_REGEX}{re.escape(k)}{self.BOUNDARY_REGEX}"
+                for k in keywords
+            ),
+            flags=re.IGNORECASE,
         )
 
     async def _process_message(
@@ -481,8 +492,8 @@ class AllowWithKeywordsFilter(SkipWithKeywordsFilter):
 
     Args:
         keywords (set[str]): Keywords set
-        lookup_whole_word (bool, optional): "Whole words only" lookup. Defaults to True
-        regex (bool, optional): Treats keywords as regex. Defaults to False
+        lookup_whole_word (bool, optional): [DEPRECATED] "Whole words only" lookup. Defaults to True
+        regex (bool, optional): [DEPRECATED] Treats keywords as regex. Defaults to False
     """
 
     async def _process_message(

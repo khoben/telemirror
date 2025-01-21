@@ -112,12 +112,12 @@
                 ? t.me
           - KeywordReplaceFilter:
               keywords:
-                "google.com": "bing.com"
-              regex: false # treat keywords as plain text
+                "google.com": "bing.com"    # treat keyword as word
+                "r'google\.com.*'": "bing.com" # treat keyword as regex expr
           - SkipWithKeywordsFilter:
               keywords: !!set
-                ? "stopword"
-              regex: true # treat keywords as regex expr
+                ? "stopword"     # treat keyword as word
+                ? "r'badword.*'" # treat keyword as regex expr
     ```
     </details>
 
