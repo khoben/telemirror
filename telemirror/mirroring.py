@@ -15,6 +15,7 @@ from telemirror._patch import (
     set_album_event_timeout,
 )
 from telemirror.hints import EventAlbumMessage, EventLike, EventMessage
+from telemirror.messagefilters.base import FilterAction
 from telemirror.mixins import CopyEventMessage
 from telemirror.storage import Database, MirrorMessage
 
@@ -122,11 +123,11 @@ class EventProcessor(CopyEventMessage):
                     continue
 
                 filtered_message: EventMessage
-                proceed, filtered_message = await config.filters.process(
+                filter_action, filtered_message = await config.filters.process(
                     self.copy_message(message), events.NewMessage.Event
                 )
 
-                if proceed is False:
+                if filter_action is FilterAction.DISCARD or filter_action is False:
                     self._logger.info(
                         f"[New message]: Message {message_link} was skipped "
                         f"by the filter for chat#{outgoing_chat}"
@@ -243,11 +244,11 @@ class EventProcessor(CopyEventMessage):
                     continue
 
                 filtered_album: EventAlbumMessage
-                proceed, filtered_album = await config.filters.process(
+                filter_action, filtered_album = await config.filters.process(
                     self.copy_album(album), events.Album.Event
                 )
 
-                if proceed is False:
+                if filter_action is FilterAction.DISCARD or filter_action is False:
                     self._logger.info(
                         f"[New album]: Message {album_link} was skipped "
                         f"by the filter for chat#{outgoing_chat}"
@@ -343,10 +344,10 @@ class EventProcessor(CopyEventMessage):
                 if config.disable_edit is True or config.mode == "forward":
                     continue
 
-                proceed, filtered_message = await config.filters.process(
+                filter_action, filtered_message = await config.filters.process(
                     self.copy_message(message), events.MessageEdited.Event
                 )
-                if proceed is False:
+                if filter_action is FilterAction.DISCARD or filter_action is False:
                     self._logger.info(
                         f"[Edit message]: Message {message_link} was skipped "
                         f"by the filter for chat#{outgoing_message.mirror_channel}"
@@ -591,15 +592,12 @@ class Mirroring:
         """Stringify mirror config"""
         mirror_mapping = "\n".join(
             [
-                f'{source} -> {", ".join(map(lambda x: f"{x} [{targets[x]}]", targets))}'
+                f"{source} -> {', '.join(map(lambda x: f'{x} [{targets[x]}]', targets))}"
                 for (source, targets) in self._chat_mapping.items()
             ]
         )
 
-        return (
-            f"Mirror mapping: \n{ mirror_mapping }\n"
-            f"Using database: { self._database }\n"
-        )
+        return f"Mirror mapping: \n{mirror_mapping}\nUsing database: {self._database}\n"
 
     async def __connect_client(self: "Mirroring", client: TelegramClient) -> None:
         try:

@@ -1,7 +1,7 @@
-from typing import Tuple, Type
+from typing import Type
 
-from ..hints import EventMessage, EventLike
-from .base import MessageFilter
+from ..hints import EventLike, EventMessage
+from .base import FilterResult, MessageFilter
 
 
 class RestrictSavingContentBypassFilter(MessageFilter):
@@ -35,5 +35,5 @@ class RestrictSavingContentBypassFilter(MessageFilter):
 
     async def _process_message(
         self, message: EventMessage, event_type: Type[EventLike]
-    ) -> Tuple[bool, EventMessage]:
+    ) -> FilterResult[EventMessage]:
         raise NotImplementedError

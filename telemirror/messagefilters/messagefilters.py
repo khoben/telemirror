@@ -1,6 +1,6 @@
 import logging
 import re
-from typing import Optional, Set, Tuple, Type, Union
+from typing import Optional, Set, Type, Union
 
 from telethon import events, types, utils
 
@@ -13,7 +13,7 @@ from ..mixins import (
     UpdateEntitiesParams,
     WordBoundaryRegex,
 )
-from .base import MessageFilter
+from .base import FilterAction, FilterResult, MessageFilter
 
 logger = logging.getLogger("telemirror")
 
@@ -22,28 +22,28 @@ class EmptyMessageFilter(MessageFilter):
     """Do nothing with message"""
 
     async def process(
-        self, message: EventEntity, event_type: Type[EventLike]
-    ) -> Tuple[bool, EventEntity]:
-        return True, message
+        self, entity: EventEntity, event_type: Type[EventLike]
+    ) -> FilterResult[EventEntity]:
+        return FilterResult(FilterAction.CONTINUE, entity)
 
     async def _process_message(
         self, message: EventMessage, event_type: Type[EventLike]
-    ) -> Tuple[bool, EventMessage]:
-        return True, message
+    ) -> FilterResult[EventMessage]:
+        raise NotImplementedError
 
 
 class SkipAllFilter(MessageFilter):
     """Skips all messages"""
 
     async def process(
-        self, message: EventEntity, event_type: Type[EventLike]
-    ) -> Tuple[bool, EventEntity]:
-        return False, message
+        self, entity: EventEntity, event_type: Type[EventLike]
+    ) -> FilterResult[EventEntity]:
+        return FilterResult(FilterAction.DISCARD, entity)
 
     async def _process_message(
         self, message: EventMessage, event_type: Type[EventLike]
-    ) -> Tuple[bool, EventMessage]:
-        return False, message
+    ) -> FilterResult[EventMessage]:
+        raise NotImplementedError
 
 
 class SkipUrlFilter(MessageFilter):
@@ -59,9 +59,9 @@ class SkipUrlFilter(MessageFilter):
 
     async def _process_message(
         self, message: EventMessage, event_type: Type[EventLike]
-    ) -> Tuple[bool, EventMessage]:
+    ) -> FilterResult[EventMessage]:
         if isinstance(message.media, types.MessageMediaWebPage):
-            return False, message
+            return FilterResult(FilterAction.DISCARD, message)
 
         for entity in message.entities or []:
             if isinstance(
@@ -72,9 +72,9 @@ class SkipUrlFilter(MessageFilter):
                 )
                 and self._skip_mention
             ):
-                return False, message
+                return FilterResult(FilterAction.DISCARD, message)
 
-        return True, message
+        return FilterResult(FilterAction.CONTINUE, message)
 
 
 class UrlMessageFilter(UpdateEntitiesParams, MessageFilter):
@@ -125,7 +125,7 @@ class UrlMessageFilter(UpdateEntitiesParams, MessageFilter):
 
     async def _process_message(
         self, message: EventMessage, event_type: Type[EventLike]
-    ) -> Tuple[bool, EventMessage]:
+    ) -> FilterResult[EventMessage]:
         filtered_text = utils.add_surrogate(message.message)
         filtered_entities = list[types.TypeMessageEntity]()
 
@@ -204,7 +204,7 @@ class UrlMessageFilter(UpdateEntitiesParams, MessageFilter):
         message.entities = filtered_entities
         message.message = utils.del_surrogate(filtered_text)
 
-        return True, message
+        return FilterResult(FilterAction.CONTINUE, message)
 
     def _match_mention(self, mention: str) -> bool:
         if self._filter_mention is not None:
@@ -264,14 +264,14 @@ class ForwardFormatFilter(ChannelName, MessageLink, MessageFilter):
 
     async def _process_message(
         self, message: EventMessage, event_type: Type[EventLike]
-    ) -> Tuple[bool, EventMessage]:
+    ) -> FilterResult[EventMessage]:
         # Skip format editing for empty album's items
         if (
             event_type is events.MessageEdited.Event
             and message.grouped_id
             and not message.message
         ):
-            return True, message
+            return FilterResult(FilterAction.CONTINUE, message)
 
         message_link = (
             self.message_link(message) or "" if self._request_message_link else ""
@@ -332,22 +332,22 @@ class ForwardFormatFilter(ChannelName, MessageLink, MessageFilter):
 
         message.message = pre_formatted_text.format(message_text=message.message)
 
-        return True, message
+        return FilterResult(FilterAction.CONTINUE, message)
 
     async def _process_album(
         self, album: EventAlbumMessage, event_type: Type[EventLike]
-    ) -> Tuple[bool, EventAlbumMessage]:
+    ) -> FilterResult[EventAlbumMessage]:
         # Process first message with non-empty text or first message
         message_idx, message_album = next(
             ((idx, message) for idx, message in enumerate(album) if message.message),
             (0, album[0]),
         )
 
-        proceed, album[message_idx] = await self._process_message(
+        filter_action, album[message_idx] = await self._process_message(
             message_album, event_type
         )
 
-        return proceed, album
+        return FilterResult(filter_action, album)
 
 
 class MappedNameForwardFormat(MappedChannelName, ForwardFormatFilter):
@@ -406,9 +406,9 @@ class KeywordReplaceFilter(UpdateEntitiesParams, WordBoundaryRegex, MessageFilte
 
     async def _process_message(
         self, message: EventMessage, event_type: Type[EventLike]
-    ) -> Tuple[bool, EventMessage]:
+    ) -> FilterResult[EventMessage]:
         if not message.message:
-            return True, message
+            return FilterResult(FilterAction.CONTINUE, message)
 
         filtered_text = utils.add_surrogate(message.message)
         filtered_entities = message.entities or []
@@ -447,7 +447,7 @@ class KeywordReplaceFilter(UpdateEntitiesParams, WordBoundaryRegex, MessageFilte
         message.entities = filtered_entities
         message.message = utils.del_surrogate(filtered_text)
 
-        return True, message
+        return FilterResult(FilterAction.CONTINUE, message)
 
 
 class SkipWithKeywordsFilter(WordBoundaryRegex, MessageFilter):
@@ -483,8 +483,13 @@ class SkipWithKeywordsFilter(WordBoundaryRegex, MessageFilter):
 
     async def _process_message(
         self, message: EventMessage, event_type: Type[EventLike]
-    ) -> Tuple[bool, EventMessage]:
-        return self._lookup_regex.search(message.message) is None, message
+    ) -> FilterResult[EventMessage]:
+        return FilterResult(
+            FilterAction.CONTINUE
+            if self._lookup_regex.search(message.message) is None
+            else FilterAction.DISCARD,
+            message,
+        )
 
 
 class AllowWithKeywordsFilter(SkipWithKeywordsFilter):
@@ -498,5 +503,10 @@ class AllowWithKeywordsFilter(SkipWithKeywordsFilter):
 
     async def _process_message(
         self, message: EventMessage, event_type: Type[EventLike]
-    ) -> Tuple[bool, EventMessage]:
-        return self._lookup_regex.search(message.message) is not None, message
+    ) -> FilterResult[EventMessage]:
+        return FilterResult(
+            FilterAction.CONTINUE
+            if self._lookup_regex.search(message.message) is not None
+            else FilterAction.DISCARD,
+            message,
+        )
