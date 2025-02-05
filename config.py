@@ -114,6 +114,12 @@ PORT: int = config("PORT", default=8000, cast=int)
 
 ###############Channel mirroring config#################
 
+YAML_CONFIG_ENV: Optional[str] = config("YAML_CONFIG_ENV", default=None)
+YAML_CONFIG_FILE = "./.configs/mirror.config.yml"
+
+# source and target chats mapping
+CHAT_MAPPING: Dict[int, Dict[int, List["DirectionConfig"]]] = {}
+
 
 @dataclass(frozen=True)
 class DirectionConfig:
@@ -135,19 +141,9 @@ class DirectionConfig:
         )
 
 
-# source and target chats mapping
-CHAT_MAPPING: Dict[int, Dict[int, List[DirectionConfig]]] = {}
-
-YAML_CONFIG_FILE = "./.configs/mirror.config.yml"
-YAML_CONFIG_ENV: Optional[str] = config("YAML_CONFIG_ENV", default=None)
-
-# Check for deprecated config location
-if os.path.exists("./mirror.config.yml"):
-    raise Exception("Please move `mirror.config.yml` to `.configs` directory")
-
 # Load mirror config from config.yml
 # otherwise from .env or environment
-if os.path.exists(YAML_CONFIG_FILE) or YAML_CONFIG_ENV:
+if YAML_CONFIG_ENV or os.path.exists(YAML_CONFIG_FILE):
     from importlib import import_module
     from types import ModuleType
 
@@ -164,12 +160,6 @@ if os.path.exists(YAML_CONFIG_FILE) or YAML_CONFIG_ENV:
     else:
         with open(YAML_CONFIG_FILE, encoding="utf8") as file:
             yaml_config = yaml.load(file, Loader=yaml.FullLoader)
-
-    if "targets" in yaml_config:
-        raise ValueError(
-            "`targets` section deprecated. Please move `disable_delete`, `disable_edit`"
-            " and `filters` to `directions` section."
-        )
 
     def build_filters(
         filter_config: Optional[dict], default: MessageFilter
@@ -222,9 +212,9 @@ if os.path.exists(YAML_CONFIG_FILE) or YAML_CONFIG_ENV:
                         filters=build_filters(
                             direction.get("filters", None), default_filters
                         ),
-                        mode=direction.get("mode", yaml_config.get("mode", "copy")),
                         from_topic_id=source_topic_id,
                         to_topic_id=target_topic_id,
+                        mode=direction.get("mode", yaml_config.get("mode", "copy")),
                     )
                 )
 
