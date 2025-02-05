@@ -1,4 +1,3 @@
-import logging
 import re
 from typing import Optional, Set, Type, Union
 
@@ -14,8 +13,6 @@ from ..mixins import (
     WordBoundaryRegex,
 )
 from .base import FilterAction, FilterResult, MessageFilter
-
-logger = logging.getLogger("telemirror")
 
 
 class EmptyMessageFilter(MessageFilter):
@@ -378,22 +375,9 @@ class KeywordReplaceFilter(UpdateEntitiesParams, WordBoundaryRegex, MessageFilte
     """Filter that maps keywords
     Args:
         keywords (dict[str, str]): Keywords map
-        lookup_whole_word (bool, optional): [DEPRECATED] "Whole words only" lookup. Defaults to True
-        regex (bool, optional): [DEPRECATED] Treats keywords as regex. Defaults to False
     """
 
-    def __init__(
-        self,
-        keywords: dict[str, str],
-        lookup_whole_word: Optional[bool] = None,
-        regex: Optional[bool] = None,
-    ) -> None:
-        if lookup_whole_word is not None or regex is not None:
-            logger.warning(
-                "[KeywordReplaceFilter]: `lookup_whole_word` and `regex` are deprecated and will be removed in the future. "
-                "Regex keywords usage - r'word.*'"
-            )
-
+    def __init__(self, keywords: dict[str, str]) -> None:
         self._lookup_regex = {
             re.compile(
                 k.removeprefix("r'").removesuffix("'")
@@ -455,22 +439,9 @@ class SkipWithKeywordsFilter(WordBoundaryRegex, MessageFilter):
 
     Args:
         keywords (set[str]): Keywords set
-        lookup_whole_word (bool, optional): [DEPRECATED] "Whole words only" lookup. Defaults to True
-        regex (bool, optional): [DEPRECATED] Treats keywords as regex. Defaults to False
     """
 
-    def __init__(
-        self,
-        keywords: set[str],
-        lookup_whole_word: Optional[bool] = None,
-        regex: Optional[bool] = None,
-    ) -> None:
-        if lookup_whole_word is not None or regex is not None:
-            logger.warning(
-                "[SkipWithKeywordsFilter]: `lookup_whole_word` and `regex` are deprecated and will be removed in the future. "
-                "Regex keywords usage - r'word.*'"
-            )
-
+    def __init__(self, keywords: set[str]) -> None:
         self._lookup_regex = re.compile(
             "|".join(
                 k.removeprefix("r'").removesuffix("'")
@@ -497,8 +468,6 @@ class AllowWithKeywordsFilter(SkipWithKeywordsFilter):
 
     Args:
         keywords (set[str]): Keywords set
-        lookup_whole_word (bool, optional): [DEPRECATED] "Whole words only" lookup. Defaults to True
-        regex (bool, optional): [DEPRECATED] Treats keywords as regex. Defaults to False
     """
 
     async def _process_message(
