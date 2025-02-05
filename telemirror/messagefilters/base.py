@@ -1,6 +1,6 @@
 from abc import abstractmethod
 from enum import Enum
-from typing import Generic, NamedTuple, Protocol, Type, TypeVar
+from typing import Generic, List, NamedTuple, Protocol, Type, TypeVar
 
 from ..hints import EventAlbumMessage, EventEntity, EventLike, EventMessage
 
@@ -104,15 +104,15 @@ class CompositeMessageFilter(MessageFilter):
     """Composite message filter that sequentially applies the filters
 
     Args:
-        *arg (`MessageFilter`):
+        filters (`List[MessageFilter]`):
             Message filters
     """
 
-    def __init__(self, *arg: MessageFilter) -> None:
-        self._filters = list(arg)
+    def __init__(self, filters: List[MessageFilter]) -> None:
         self._is_restricted_content_allowed = any(
-            f.restricted_content_allowed for f in self._filters
+            f.restricted_content_allowed for f in filters
         )
+        self._filters = filters
 
     @property
     def restricted_content_allowed(self) -> bool:

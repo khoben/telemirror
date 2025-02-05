@@ -185,7 +185,7 @@ if os.path.exists(YAML_CONFIG_FILE) or YAML_CONFIG_ENV:
             filter_class = getattr(filters_module, filter_name)
             filters.append(filter_class(**filter_args))
 
-        return CompositeMessageFilter(*filters) if (len(filters) > 1) else filters[0]
+        return CompositeMessageFilter(filters) if (len(filters) > 1) else filters[0]
 
     default_filters = build_filters(
         yaml_config.get("filters", None), EmptyMessageFilter()
