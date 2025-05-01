@@ -31,6 +31,8 @@ async def send_message(
     schedule: "hints.DateLike" = None,
     comment_to: "typing.Union[int, types.Message]" = None,
     nosound_video: bool = None,
+    send_as: typing.Optional["hints.EntityLike"] = None,
+    message_effect_id: typing.Optional[int] = None,
 ) -> "types.Message":
     """
     Sends a message to the specified user, chat or channel.
@@ -156,6 +158,16 @@ async def send_message(
             on non-video files. This is set to ``True`` for albums, as gifs
             cannot be sent in albums.
 
+        send_as (`entity`):
+            Unique identifier (int) or username (str) of the chat or channel to send the message as.
+            You can use this to send the message on behalf of a chat or channel where you have appropriate permissions.
+            Use the GetSendAs to return the list of message sender identifiers, which can be used to send messages in the chat,
+            This setting applies to the current message and will remain effective for future messages unless explicitly changed.
+            To set this behavior permanently for all messages, use SaveDefaultSendAs.
+
+        message_effect_id (`int`, optional):
+            Unique identifier of the message effect to be added to the message; for private chats only
+
     Returns
         The sent `custom.Message <telethon.tl.custom.message.Message>`.
 
@@ -216,6 +228,9 @@ async def send_message(
             await client.send_message(chat, 'Hi, future!', schedule=timedelta(minutes=5))
     """
     if file is not None:
+        if isinstance(message, types.Message):
+            formatting_entities = formatting_entities or message.entities
+            message = message.message
         return await send_file(
             client,
             entity,
@@ -236,6 +251,8 @@ async def send_message(
             comment_to=comment_to,
             background=background,
             nosound_video=nosound_video,
+            send_as=send_as,
+            message_effect_id=message_effect_id,
         )
 
     entity = await client.get_input_entity(entity)
@@ -267,6 +284,8 @@ async def send_message(
                 formatting_entities=message.entities,
                 parse_mode=None,  # explicitly disable parse_mode to force using even empty formatting_entities
                 schedule=schedule,
+                send_as=send_as,
+                message_effect_id=message_effect_id,
             )
 
         request = functions.messages.SendMessageRequest(
@@ -282,6 +301,8 @@ async def send_message(
             clear_draft=clear_draft,
             no_webpage=not isinstance(message.media, types.MessageMediaWebPage),
             schedule_date=schedule,
+            send_as=await client.get_input_entity(send_as) if send_as else None,
+            effect=message_effect_id,
         )
         message = message.message
     else:
@@ -305,6 +326,8 @@ async def send_message(
             background=background,
             reply_markup=client.build_reply_markup(buttons),
             schedule_date=schedule,
+            send_as=await client.get_input_entity(send_as) if send_as else None,
+            effect=message_effect_id,
         )
 
     result = await client(request)
@@ -339,6 +362,8 @@ async def forward_messages(
     as_album: bool = None,
     schedule: "hints.DateLike" = None,
     reply_to_topic_id: "typing.Optional[int]" = None,
+    drop_author: bool = None,
+    drop_media_captions: bool = None,
 ) -> "typing.Sequence[types.Message]":
     """
     Forwards the given messages to the specified entity.
@@ -384,6 +409,12 @@ async def forward_messages(
 
         reply_to_topic_id (`int`, optional):
             Reply to topic with ID
+
+        drop_author (`bool`, optional):
+            Whether to forward messages without quoting the original author.
+
+        drop_media_captions (`bool`, optional):
+            Whether to strip captions from media. Setting this to `True` requires that `drop_author` also be set to `True`.
 
 
     Returns
@@ -458,6 +489,8 @@ async def forward_messages(
             with_my_score=with_my_score,
             top_msg_id=reply_to_topic_id,
             schedule_date=schedule,
+            drop_author=drop_author,
+            drop_media_captions=drop_media_captions,
         )
         result = await client(req)
         sent.extend(client._get_response_message(req, result, entity))
@@ -481,7 +514,12 @@ async def send_file(
     thumb: "hints.FileLike" = None,
     allow_cache: bool = True,
     parse_mode: str = (),
-    formatting_entities: typing.Optional[typing.List[types.TypeMessageEntity]] = None,
+    formatting_entities: typing.Optional[
+        typing.Union[
+            typing.List[types.TypeMessageEntity],
+            typing.List[typing.List[types.TypeMessageEntity]],
+        ]
+    ] = None,
     voice_note: bool = False,
     video_note: bool = False,
     buttons: typing.Optional["hints.MarkupLike"] = None,
@@ -492,8 +530,10 @@ async def send_file(
     comment_to: "typing.Union[int, types.Message]" = None,
     ttl: int = None,
     nosound_video: bool = None,
+    send_as: typing.Optional["hints.EntityLike"] = None,
+    message_effect_id: typing.Optional[int] = None,
     **kwargs,
-) -> "types.Message":
+) -> typing.Union[typing.List[typing.Any], typing.Any]:
     """
     Sends message with the given file to the specified entity.
 
@@ -609,7 +649,11 @@ async def send_file(
             default.
 
         formatting_entities (`list`, optional):
-            A list of message formatting entities. When provided, the ``parse_mode`` is ignored.
+            Optional formatting entities for the sent media message. When sending an album,
+            `formatting_entities` can be a list of lists, where each inner list contains
+            `types.TypeMessageEntity`. Each inner list will be assigned to the corresponding
+            file in a pairwise manner with the caption. If provided, the ``parse_mode``
+            parameter will be ignored.
 
         voice_note (`bool`, optional):
             If `True` the audio will be sent as a voice note.
@@ -674,6 +718,16 @@ async def send_file(
             on non-video files. This is set to ``True`` for albums, as gifs
             cannot be sent in albums.
 
+        send_as (`entity`):
+            Unique identifier (int) or username (str) of the chat or channel to send the message as.
+            You can use this to send the message on behalf of a chat or channel where you have appropriate permissions.
+            Use the GetSendAs to return the list of message sender identifiers, which can be used to send messages in the chat,
+            This setting applies to the current message and will remain effective for future messages unless explicitly changed.
+            To set this behavior permanently for all messages, use SaveDefaultSendAs.
+
+        message_effect_id (`int`, optional):
+            Unique identifier of the message effect to be added to the message; for private chats only
+
     Returns
         The `Message <telethon.tl.custom.message.Message>` (or messages)
         containing the sent file, or messages if a list of them was passed.
@@ -731,6 +785,9 @@ async def send_file(
     if not caption:
         caption = ""
 
+    if not formatting_entities:
+        formatting_entities = []
+
     entity = await client.get_input_entity(entity)
     if comment_to is not None:
         entity, reply_to = await client._get_comment_data(entity, comment_to)
@@ -752,6 +809,26 @@ async def send_file(
         else:
             captions = [caption]
 
+        # Check that formatting_entities list is valid
+        if all(utils.is_list_like(obj) for obj in formatting_entities):
+            formatting_entities = formatting_entities
+        elif utils.is_list_like(formatting_entities):
+            formatting_entities = [formatting_entities]
+        else:
+            raise TypeError(
+                "The formatting_entities argument must be a list or a sequence of lists"
+            )
+
+        # Check that all entities in all lists are of the correct type
+        if not all(
+            isinstance(ent, types.TypeMessageEntity)
+            for sublist in formatting_entities
+            for ent in sublist
+        ):
+            raise TypeError(
+                "All entities must be instances of <types.TypeMessageEntity>"
+            )
+
         result = []
         while file:
             result += await _send_album(
@@ -759,6 +836,7 @@ async def send_file(
                 entity,
                 file[:10],
                 caption=captions[:10],
+                formatting_entities=formatting_entities[:10],
                 progress_callback=used_callback,
                 reply_to=reply_to,
                 reply_to_topic_id=reply_to_topic_id,
@@ -769,14 +847,17 @@ async def send_file(
                 clear_draft=clear_draft,
                 force_document=force_document,
                 background=background,
+                send_as=send_as,
+                message_effect_id=message_effect_id,
             )
             file = file[10:]
             captions = captions[10:]
+            formatting_entities = formatting_entities[10:]
             sent_count += 10
 
         return result
 
-    if formatting_entities is not None:
+    if formatting_entities:
         msg_entities = formatting_entities
     else:
         caption, msg_entities = await client._parse_message_text(caption, parse_mode)
@@ -817,6 +898,8 @@ async def send_file(
         schedule_date=schedule,
         clear_draft=clear_draft,
         background=background,
+        send_as=await client.get_input_entity(send_as) if send_as else None,
+        effect=message_effect_id,
     )
     return client._get_response_message(request, await client(request), entity)
 
@@ -826,6 +909,7 @@ async def _send_album(
     entity,
     files,
     caption="",
+    formatting_entities=None,
     progress_callback=None,
     reply_to=None,
     reply_to_topic_id=None,
@@ -837,6 +921,8 @@ async def _send_album(
     force_document=False,
     background=None,
     ttl=None,
+    send_as: typing.Optional["hints.EntityLike"] = None,
+    message_effect_id: typing.Optional[int] = None,
 ):
     """Specialized version of .send_file for albums"""
     # We don't care if the user wants to avoid cache, we will use it
@@ -845,16 +931,28 @@ async def _send_album(
     # cache only makes a difference for documents where the user may
     # want the attributes used on them to change.
     #
-    # In theory documents can be sent inside the albums but they appear
+    # In theory documents can be sent inside the albums, but they appear
     # as different messages (not inside the album), and the logic to set
     # the attributes/avoid cache is already written in .send_file().
     entity = await client.get_input_entity(entity)
     if not utils.is_list_like(caption):
         caption = (caption,)
 
+    if not all(isinstance(obj, list) for obj in formatting_entities):
+        formatting_entities = (formatting_entities,)
+
     captions = []
-    for c in reversed(caption):  # Pop from the end (so reverse)
-        captions.append(await client._parse_message_text(c or "", parse_mode))
+    # If the formatting_entities argument is provided, we don't use parse_mode
+    if formatting_entities:
+        # Pop from the end (so reverse)
+        capt_with_ent = itertools.zip_longest(
+            reversed(caption), reversed(formatting_entities), fillvalue=None
+        )
+        for msg_caption, msg_entities in capt_with_ent:
+            captions.append((msg_caption, msg_entities))
+    else:
+        for c in reversed(caption):  # Pop from the end (so reverse)
+            captions.append(await client._parse_message_text(c or "", parse_mode))
 
     reply_to = utils.get_message_id(reply_to)
 
@@ -890,7 +988,9 @@ async def _send_album(
             r = await client(functions.messages.UploadMediaRequest(entity, media=fm))
 
             fm = utils.get_input_media(r.photo)
-        elif isinstance(fm, types.InputMediaUploadedDocument):
+        elif isinstance(
+            fm, (types.InputMediaUploadedDocument, types.InputMediaDocumentExternal)
+        ):
             r = await client(functions.messages.UploadMediaRequest(entity, media=fm))
 
             fm = utils.get_input_media(
@@ -921,6 +1021,8 @@ async def _send_album(
         schedule_date=schedule,
         clear_draft=clear_draft,
         background=background,
+        send_as=await client.get_input_entity(send_as) if send_as else None,
+        effect=message_effect_id,
     )
     result = await client(request)
 
