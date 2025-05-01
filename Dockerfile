@@ -1,4 +1,4 @@
-FROM python:3.11-slim-bullseye as build
+FROM python:3.13-slim-bookworm as build
 
 ENV PIP_NO_CACHE_DIR=1
 
