@@ -5,10 +5,15 @@ from telemirror.storage import InMemoryDatabase, PostgresDatabase
 
 
 async def serve_health_endpoint(host: str, port: int) -> None:
+    """
+    Start http health endpoint at /.
+
+    Some PaaS providers require a health endpoint to verify that the service has started successfully.
+    """
     from aiohttp import web
 
     async def health(_):
-        return web.Response(text="OK")
+        return web.Response(status=204)
 
     app = web.Application()
     app.add_routes([web.get("/", health)])
