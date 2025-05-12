@@ -10,7 +10,7 @@ from psycopg_pool import AsyncConnectionPool
 from .misc.lrucache import LRUCache
 
 
-@dataclass
+@dataclass(frozen=True)
 class MirrorMessage:
     """
     Mirror message class contains id message mappings:
@@ -153,7 +153,7 @@ class InMemoryDatabase(Database):
             entity (`MirrorMessage`): `MirrorMessage` object
         """
         self.__storage.setdefault(
-            self.__build_message_hash(entity.original_id, entity.original_channel), []
+            self.__build_message_key(entity.original_id, entity.original_channel), []
         ).append(entity)
 
     async def insert_batch(
@@ -165,7 +165,9 @@ class InMemoryDatabase(Database):
             entity (`List[MirrorMessage]`): List of `MirrorMessage` objects
         """
         for e in entity:
-            await self.insert(e)
+            self.__storage.setdefault(
+                self.__build_message_key(e.original_id, e.original_channel), []
+            ).append(entity)
 
     async def get_messages(
         self: "InMemoryDatabase", original_id: int, original_channel: int
@@ -181,7 +183,7 @@ class InMemoryDatabase(Database):
             List[MirrorMessage]
         """
         return self.__storage.get(
-            self.__build_message_hash(original_id, original_channel), []
+            self.__build_message_key(original_id, original_channel), []
         )
 
     async def get_messages_batch(
@@ -197,10 +199,13 @@ class InMemoryDatabase(Database):
         Returns:
             List[MirrorMessage]
         """
-        messages: List[MirrorMessage] = []
-        for idx in original_ids:
-            messages.extend(await self.get_messages(idx, original_channel))
-        return messages
+        return [
+            msg
+            for idx in original_ids
+            for msg in self.__storage.get(
+                self.__build_message_key(idx, original_channel), []
+            )
+        ]
 
     async def delete_messages(
         self: "InMemoryDatabase", original_id: int, original_channel: int
@@ -212,10 +217,9 @@ class InMemoryDatabase(Database):
             original_id (`int`): Original message ID
             original_channel (`int`): Source channel ID
         """
-        try:
-            del self.__storage[self.__build_message_hash(original_id, original_channel)]
-        except KeyError:
-            pass
+        self.__storage.pop(
+            self.__build_message_key(original_id, original_channel), None
+        )
 
     async def delete_messages_batch(
         self: "InMemoryDatabase", original_ids: List[int], original_channel: int
@@ -228,13 +232,13 @@ class InMemoryDatabase(Database):
             original_channel (`int`): Source channel ID
         """
         for idx in original_ids:
-            await self.delete_messages(idx, original_channel)
+            self.__storage.pop(self.__build_message_key(idx, original_channel), None)
 
-    def __build_message_hash(
+    def __build_message_key(
         self: "InMemoryDatabase", original_id: int, original_channel: int
     ) -> str:
         """
-        Builds message hash from `original_id` and `original_channel` values
+        Builds message key from `original_id` and `original_channel` values
 
         Args:
             original_id (`int`): Original message ID
