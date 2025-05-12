@@ -165,7 +165,7 @@ class InMemoryDatabase(Database):
         for e in entity:
             self.__storage.setdefault(
                 self.__build_message_key(e.original_id, e.original_channel), []
-            ).append(entity)
+            ).append(e)
 
     async def get_messages(
         self: "InMemoryDatabase", original_id: int, original_channel: int
