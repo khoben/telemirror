@@ -9,8 +9,9 @@ class RestrictSavingContentBypassFilter(MessageFilter):
 
     Sample implementation:
 
-    Download the media, upload it to the Telegram servers,
-    and then change to the new uploaded media
+    Download the media (note that the file may be large),
+    upload it to the Telegram servers,
+    and then change the origin media to the new uploaded media
 
     ```
     # If here is media and noforwards enabled
@@ -25,7 +26,7 @@ class RestrictSavingContentBypassFilter(MessageFilter):
         else:
             message.media = None
 
-    return True, message
+    return FilterResult(FilterAction.CONTINUE, message)
     ```
     """
 
