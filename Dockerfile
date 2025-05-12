@@ -1,4 +1,4 @@
-FROM python:3.13-slim-bookworm as build
+FROM python:3.13-slim-bookworm AS build
 
 ENV PIP_NO_CACHE_DIR=1
 
@@ -6,7 +6,7 @@ WORKDIR /app
 COPY ./requirements.txt /app/requirements.txt
 RUN pip install --target=/app/dependencies -r requirements.txt
 
-FROM build as release
+FROM build AS release
 
 RUN useradd -m apprunner
 USER apprunner
