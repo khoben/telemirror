@@ -113,7 +113,7 @@
           - KeywordReplaceFilter:
               keywords:
                 "google.com": "bing.com"    # treat keyword as word
-                "r'google\.com.*'": "bing.com" # treat keyword as regex expr
+                "r'google\\.com.*'": "bing.com" # treat keyword as regex expr
           - SkipWithKeywordsFilter:
               keywords: !!set
                 ? "stopword"     # treat keyword as word
