@@ -1,7 +1,6 @@
 from abc import abstractmethod
 from contextlib import asynccontextmanager
-from dataclasses import dataclass
-from typing import Any, AsyncIterator, List, Protocol
+from typing import Any, AsyncIterator, List, NamedTuple, Protocol
 
 from psycopg import AsyncCursor, errors
 from psycopg.rows import class_row
@@ -10,8 +9,7 @@ from psycopg_pool import AsyncConnectionPool
 from .misc.lrucache import LRUCache
 
 
-@dataclass(frozen=True)
-class MirrorMessage:
+class MirrorMessage(NamedTuple):
     """
     Mirror message class contains id message mappings:
 
@@ -333,15 +331,7 @@ class PostgresDatabase(Database):
                 INSERT INTO binding_id (original_id, original_channel, mirror_id, mirror_channel)
                 VALUES (%s, %s, %s, %s)
                 """,
-                [
-                    (
-                        e.original_id,
-                        e.original_channel,
-                        e.mirror_id,
-                        e.mirror_channel,
-                    )
-                    for e in entity
-                ],
+                entity,
             )
 
     async def get_messages(
