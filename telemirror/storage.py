@@ -357,19 +357,18 @@ class PostgresDatabase(Database):
         Returns:
             List[MirrorMessage]
         """
-        rows: List[MirrorMessage] = []
         async with self.__pg_cursor() as cursor:
             cursor.row_factory = class_row(MirrorMessage)
             await cursor.execute(
                 """
                 SELECT original_id, original_channel, mirror_id, mirror_channel
                 FROM binding_id
-                WHERE original_id = %s
-                AND original_channel = %s
+                WHERE original_channel = %s
+                AND original_id = %s
                 """,
                 (
-                    original_id,
                     original_channel,
+                    original_id,
                 ),
             )
             rows = await cursor.fetchall()
@@ -388,19 +387,18 @@ class PostgresDatabase(Database):
         Returns:
             List[MirrorMessage]
         """
-        rows: List[MirrorMessage] = []
         async with self.__pg_cursor() as cursor:
             cursor.row_factory = class_row(MirrorMessage)
             await cursor.execute(
                 """
                 SELECT original_id, original_channel, mirror_id, mirror_channel
                 FROM binding_id
-                WHERE original_id = ANY(%s)
-                AND original_channel = %s
+                WHERE original_channel = %s
+                AND original_id = ANY(%s)
                 """,
                 (
-                    original_ids,
                     original_channel,
+                    original_ids,
                 ),
             )
             rows = await cursor.fetchall()
@@ -420,12 +418,12 @@ class PostgresDatabase(Database):
             await cursor.execute(
                 """
                 DELETE FROM binding_id
-                WHERE original_id = %s
-                AND original_channel = %s
+                WHERE original_channel = %s
+                AND original_id = %s
                 """,
                 (
-                    original_id,
                     original_channel,
+                    original_id,
                 ),
             )
 
@@ -443,12 +441,12 @@ class PostgresDatabase(Database):
             await cursor.execute(
                 """
                 DELETE FROM binding_id
-                WHERE original_id = ANY(%s)
-                AND original_channel = %s
+                WHERE original_channel = %s
+                AND original_id = ANY(%s)
                 """,
                 (
-                    original_ids,
                     original_channel,
+                    original_ids,
                 ),
             )
 
@@ -462,7 +460,11 @@ class PostgresDatabase(Database):
                     original_id bigint not null,
                     original_channel bigint not null,
                     mirror_id bigint not null,
-                    mirror_channel bigint not null)
+                    mirror_channel bigint not null
+                );
+
+                CREATE INDEX IF NOT EXISTS binding_id_original_idx 
+                ON binding_id (original_channel, original_id);
                 """
             )
 
