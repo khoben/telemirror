@@ -401,9 +401,9 @@ class KeywordReplaceFilter(UpdateEntitiesParams, WordBoundaryRegex, MessageFilte
         current_replacement = None
 
         def repl(match: re.Match[str]) -> str:
-            replacement = current_replacement
+            replacement = match.expand(current_replacement)
 
-            group = match.group()
+            full_match = match.group()
 
             nonlocal entities_offset_error
             match_start, match_end = match.span()
@@ -416,11 +416,11 @@ class KeywordReplaceFilter(UpdateEntitiesParams, WordBoundaryRegex, MessageFilte
             )
             entities_offset_error += diff
 
-            if group.islower():
+            if full_match.islower():
                 return replacement.lower()
-            if group.istitle():
+            if full_match.istitle():
                 return replacement.title()
-            if group.isupper():
+            if full_match.isupper():
                 return replacement.upper()
             return replacement
 
