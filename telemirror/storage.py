@@ -292,8 +292,10 @@ class PostgresDatabase(Database):
             conninfo=self.__conn_info,
             min_size=self.__min_conn,
             max_size=self.__max_conn,
+            open=False,
             **self.__kwargs,
         )
+        await self.connection_pool.open()
         await self.__create_tables_if_not_exists()
         return self
 
