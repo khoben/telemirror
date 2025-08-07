@@ -11,6 +11,6 @@ from telethon import TelegramClient
 from telethon.sessions import StringSession
 
 with TelegramClient(
-    session=StringSession(), api_id=API_ID, api_hash=API_HASH
+    session=StringSession(), api_id=API_ID, api_hash=API_HASH, system_version="4.16.30-vxCUSTOM"
 ) as client:
     print("Session string: ", client.session.save())
