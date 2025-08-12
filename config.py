@@ -78,6 +78,16 @@ config = Config()
 API_ID: str = config("API_ID")
 # telegram app hash
 API_HASH: str = config("API_HASH")
+
+# The next optional parameters can be set to prevent bans/logouts
+# (Optional) System version info for telegram client. You can set it to `4.16.30-vxCUSTOM` or any other value if you believe it will help fix the bans. Default is `platform.uname().release`
+# See: https://github.com/LonamiWebs/Telethon/issues/4051
+API_SYSTEM_VERSION: Optional[str] = config("API_SYSTEM_VERSION", default=None)
+# (Optional) Device model info for telegram client. Default is `platform.uname().machine`
+API_DEVICE_MODEL: Optional[str] = config("API_DEVICE_MODEL", default=None)
+# (Optional) Application version info for telegram client. Default is `telethon.version.__version__`
+API_APP_VERSION: Optional[str] = config("API_APP_VERSION", default=None)
+
 # auth session string: can be obtain by run login.py
 SESSION_STRING: str = config("SESSION_STRING")
 

@@ -657,6 +657,9 @@ class Telemirror:
         chat_mapping: Dict[int, Dict[int, List[DirectionConfig]]],
         database: Database,
         logger: Union[str, logging.Logger] = None,
+        api_device_model: str = None,
+        api_system_version: str = None,
+        api_app_version: str = None,
     ):
         """Telemirror
 
@@ -667,13 +670,21 @@ class Telemirror:
             chat_mapping (`Dict[int, Dict[int, List[DirectionConfig]]]`): Chats mappings
             database (`Database`): Message IDs storage
             logger (`str` | `logging.Logger`, optional): Logger. Defaults to None.
+            api_device_model (`str`, optional): Telegram API device model. Defaults to `platform.uname().release`
+            api_system_version (`str`, optional): Telegram API system version. Defaults to `platform.uname().machine`
+            api_app_version (`str`, optional): Telegram API app version. Defaults to `telethon.version.__version__`
         """
         patch_input_media_with_spoiler()
         set_album_event_timeout(delay_sec=1.01)
 
         # Preparation for splitting receiver and sender
         recv_client = send_client = TelegramClient(
-            StringSession(session_string), api_id, api_hash
+            StringSession(session_string),
+            api_id,
+            api_hash,
+            device_model=api_device_model,
+            system_version=api_system_version,
+            app_version=api_app_version,
         )
         # Set up default parse mode as markdown
         recv_client.parse_mode = send_client.parse_mode = "markdown"

@@ -48,6 +48,15 @@
     DB_PASS=test
     # Logging level (debug, info, warning, error or critical). Defaults to info
     LOG_LEVEL=info
+    # Optional parameters can be removed
+    # The next optional parameters can be set to prevent bans/logouts
+    # (Optional) System version info for telegram client. You can set it to `4.16.30-vxCUSTOM` or any other value if you believe it will help fix the bans. Default is `platform.uname().release`
+    # See: https://github.com/LonamiWebs/Telethon/issues/4051 
+    API_SYSTEM_VERSION=
+    # (Optional) Device model info for telegram client. Default is `platform.uname().machine`
+    API_DEVICE_MODEL=
+    # (Optional) Application version info for telegram client. Default is `telethon.version.__version__`
+    API_APP_VERSION=
     ```
     </details>
 

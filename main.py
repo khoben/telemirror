@@ -49,6 +49,9 @@ async def run_telemirror(
     db_uri: str,
     api_id: str,
     api_hash: str,
+    api_device_model: str,
+    api_system_version: str,
+    api_app_version: str,
     session_string: str,
     chat_mapping: dict,
     logger: logging.Logger,
@@ -69,6 +72,9 @@ async def run_telemirror(
         chat_mapping=chat_mapping,
         database=database,
         logger=logger,
+        api_device_model=api_device_model,
+        api_system_version=api_system_version,
+        api_app_version=api_app_version,
     )
     await telemirror.run()
 
@@ -78,8 +84,11 @@ def main():
     import sys
 
     from config import (
+        API_APP_VERSION,
+        API_DEVICE_MODEL,
         API_HASH,
         API_ID,
+        API_SYSTEM_VERSION,
         CHAT_MAPPING,
         DB_URL,
         HOST,
@@ -104,6 +113,9 @@ def main():
             db_uri=DB_URL,
             api_id=API_ID,
             api_hash=API_HASH,
+            api_device_model=API_DEVICE_MODEL,
+            api_system_version=API_SYSTEM_VERSION,
+            api_app_version=API_APP_VERSION,
             session_string=SESSION_STRING,
             chat_mapping=CHAT_MAPPING,
             logger=configure_logging("telemirror", LOG_LEVEL),
