@@ -2,6 +2,6 @@ telethon==1.40.0
 cryptg==0.5.1
 psycopg[binary,pool]==3.2.9
 python-decouple==3.8
-PyYAML==6.0.2
+PyYAML==6.0.3
 aiohttp==3.12.15
 uvloop==0.21.0; platform_system != "Windows"
